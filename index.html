@@ -774,27 +774,24 @@ async function submitCheckout(){
   if(!valid.length){alert("Please add at least one product with a quantity.");return;}
   const isM=S.role==="manager";
 
-  // For techs: check truck inventory
+  // For techs: check truck inventory against warnBelow thresholds
   if(!isM){
     const truckInv=(S.truckInventories[tech]||{}).products||[];
-    const truckKeys=Object.keys(S.truckInventories);
-    console.log("Tech name used for lookup:",tech);
-    console.log("Truck inventory keys:",truckKeys);
-    console.log("Products in truck inv:",truckInv.map(function(t){return t.name+"|"+t.id+"|qty:"+t.qty;}));
-    console.log("Valid items productIds:",valid.map(function(i){return i.productId;}));
-    const hasOnTruck=valid.filter(function(item){
+    const hasEnough=valid.filter(function(item){
       const t=truckInv.find(function(t){return t.id===item.productId;});
-      console.log("Match check - productId:"+item.productId+" found:",t?t.name:"NO MATCH");
-      return t&&t.qty>0;
+      if(!t) return false;
+      const threshold = t.warnBelow||0;
+      return t.qty > threshold;
     });
-    if(hasOnTruck.length>0){
-      const names=hasOnTruck.map(function(item){
+    if(hasEnough.length>0){
+      const names=hasEnough.map(function(item){
         const p=S.products.find(function(p){return p.id===item.productId;});
         const t=truckInv.find(function(t){return t.id===item.productId;});
-        return (p?p.name:"Product")+": "+t.qty+" "+t.unit+" on your truck";
+        const threshold=t.warnBelow||0;
+        return (p?p.name:"Product")+": "+t.qty+" "+t.unit+" on your truck"+(threshold>0?" (warn below "+threshold+")":"");
       }).join("\n");
-      const proceed=confirm("Your truck inventory shows you already have:\n\n"+names+"\n\nDo you still want to request these items?");
-      if(!proceed) return;
+      alert("Your truck inventory shows you already have enough of the following:\n\n"+names+"\n\nPlease update your truck inventory first, then request again if still needed.");
+      return;
     }
   }
   for(const item of valid){
@@ -941,11 +938,16 @@ function renderTruckInvTech(pg){
   }
 
   var prodRows = (inv.products||[]).map(function(p, i){
-    return "<div class='card' style='display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:12px 14px;'>"
+    return "<div class='card' style='margin-bottom:8px;padding:12px 14px;'>"
+      +"<div style='display:flex;align-items:center;gap:10px;margin-bottom:8px;'>"
       +"<div style='flex:1;'><div style='font-weight:600;font-size:14px;'>"+esc(p.name)+"</div>"
       +"<div style='font-size:12px;color:#64748b;'>"+esc(p.unit)+"</div></div>"
-      +"<input type='number' class='inp' style='width:80px;text-align:center;font-size:16px;font-weight:700;padding:8px;' value='"+p.qty+"' min='0' id='ti-qty-"+i+"'>"
-      +"<button class='btn bd' style='padding:5px 9px;font-size:12px;' data-a='ti-remove-prod' data-v='"+i+"'>X</button></div>";
+      +"<div style='text-align:center;'><div style='font-size:10px;color:#64748b;margin-bottom:2px;'>On Truck</div>"
+      +"<input type='number' class='inp' style='width:70px;text-align:center;font-size:16px;font-weight:700;padding:8px;' value='"+p.qty+"' min='0' id='ti-qty-"+i+"'></div>"
+      +"<div style='text-align:center;'><div style='font-size:10px;color:#64748b;margin-bottom:2px;'>Warn Below</div>"
+      +"<input type='number' class='inp' style='width:70px;text-align:center;font-size:14px;padding:8px;' value='"+(p.warnBelow||0)+"' min='0' id='ti-warn-"+i+"' placeholder='0'></div>"
+      +"<button class='btn bd' style='padding:5px 9px;font-size:12px;align-self:flex-start;' data-a='ti-remove-prod' data-v='"+i+"'>X</button>"
+      +"</div></div>";
   }).join("");
 
   var existing = (inv.products||[]).map(function(p){ return p.id; });
@@ -995,7 +997,7 @@ function tiAddProd(){
   var qty = qtyInp ? (parseInt(qtyInp.value)||0) : 0;
   var techName = S.currentUser ? S.currentUser.name : S.checkTech;
   if(!S.truckInventories[techName]) S.truckInventories[techName]={truck:"",products:[],lastSubmit:null};
-  S.truckInventories[techName].products.push({id:prod.id,name:prod.name,unit:prod.unit,qty:qty,prevQty:0});
+  S.truckInventories[techName].products.push({id:prod.id,name:prod.name,unit:prod.unit,qty:qty,prevQty:0,warnBelow:0});
   save(); renderTruckInv();
 }
 
@@ -1023,8 +1025,10 @@ async function tiSubmit(){
   var variances = [];
   (inv.products||[]).forEach(function(p, i){
     var inp = document.getElementById("ti-qty-"+i);
+    var warnInp = document.getElementById("ti-warn-"+i);
     if(inp){
       var newQty = parseInt(inp.value)||0;
+      if(warnInp) p.warnBelow = parseInt(warnInp.value)||0;
       var prev = p.qty;
       // Check variance - more than 50% drop
       if(prev > 0 && newQty < prev * 0.5){
