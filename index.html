@@ -512,7 +512,7 @@ function setPage(id){
 function render(){
   // Nav
   const mgrTabs=[{id:"dashboard",l:"Home"},{id:"inspect",l:"Fleet"},{id:"inventory",l:"Inventory"},{id:"orders",l:"Orders"},{id:"checkout",l:"Checkout"},{id:"settings",l:"Settings"}];
-  const techTabs=[{id:"checkout",l:"Request"}];
+  var techTabs=[{id:"checkout",l:"Request"},{id:"truckinv",l:"My Truck"}];
   const tabs=S.role==="manager"?mgrTabs:techTabs;
   const pending=S.orders.filter(o=>o.status==="Pending").length;
   document.getElementById("nav").innerHTML=tabs.map(t=>`<button class="nb${S.tab===t.id?" on":""}" data-a="tab" data-v="${t.id}">${t.l}${t.id==="orders"&&pending>0?'<span class="bdg">'+pending+'</span>':""}</button>`).join("");
