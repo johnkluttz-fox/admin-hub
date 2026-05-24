@@ -14,7 +14,7 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:#0a1628;color:#e2e8f0;font-family:'Segoe UI',sans-serif;min-height:100vh;font-size:15px;}
 input,textarea,select,button{font-family:inherit;}
-.btn{cursor:pointer;border:none;border-radius:8px;font-weight:600;transition:all .15s;padding:10px 18px;font-size:14px;}
+.btn{cursor:pointer;border:none;border-radius:8px;font-weight:600;transition:all .15s;padding:10px 18px;font-size:14px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 .btn:active{transform:scale(.97);}
 .bp{background:#2563eb;color:#fff;} .bp:hover{background:#1d4ed8;}
 .bg{background:transparent;color:#94a3b8;border:1px solid #1e3a5f;} .bg:hover{border-color:#3b82f6;color:#e2e8f0;}
@@ -48,7 +48,7 @@ input,textarea,select,button{font-family:inherit;}
 #login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
 .pd{width:14px;height:14px;border-radius:50%;background:#1e3a5f;transition:background .15s;display:inline-block;}
 .pd.on{background:#3b82f6;}
-.pk{background:#162235;color:#e2e8f0;border:1px solid #1e3a5f;border-radius:10px;padding:16px 0;font-size:20px;font-weight:600;cursor:pointer;width:100%;text-align:center;-webkit-tap-highlight-color:transparent;}
+.pk{background:#162235;color:#e2e8f0;border:1px solid #1e3a5f;border-radius:10px;padding:16px 0;font-size:20px;font-weight:600;cursor:pointer;width:100%;text-align:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;}
 .pk:active{background:#1e3a5f;}
 .pk.del{background:#1e293b;color:#94a3b8;font-size:14px;}
 .tag-low{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#431407;color:#fb923c;}
@@ -1240,11 +1240,17 @@ load();
 var dbg = document.getElementById("debug");
 if(dbg) dbg.textContent = "Initializing...";
 
-// Safe onclick setter
+// Safe click + touch setter for mobile compatibility
 function tap(id, k){
   var el = document.getElementById(id);
   if(!el){ if(dbg) dbg.textContent = "Missing: "+id; return; }
+  // onclick for desktop
   el.onclick = function(){ pinTap(k); };
+  // touchend for mobile (prevents double-fire with onclick)
+  el.addEventListener("touchend", function(e){
+    e.preventDefault();
+    pinTap(k);
+  }, {passive:false});
 }
 tap("pk1","1"); tap("pk2","2"); tap("pk3","3");
 tap("pk4","4"); tap("pk5","5"); tap("pk6","6");
@@ -1256,17 +1262,20 @@ if(lo) lo.onclick = function(){ logout(); };
 
 if(dbg) dbg.textContent = "Ready - tap a number";
 
-// Global click handler
-document.body.onclick = function(e){
+// Global click + touch handler for mobile compatibility
+function globalHandler(e){
   var t = e.target;
   while(t && t !== document.body){
     if(t.getAttribute && t.getAttribute("data-a")){
+      if(e.type==="touchend") e.preventDefault();
       handleAction(t.getAttribute("data-a"), t.getAttribute("data-v")||"", t, e);
       return;
     }
     t = t.parentElement;
   }
-};
+}
+document.body.onclick = globalHandler;
+document.body.addEventListener("touchend", globalHandler, {passive:false});
 </script>
 </body>
 </html>
