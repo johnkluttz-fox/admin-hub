@@ -242,6 +242,27 @@ function gs(fn, data){
   }
 }
 
+async function loadAccountsFromSheet(){
+  try {
+    const result = await gs("getAccountsServer", null);
+    if(result && result.managers && result.managers.length){
+      // Merge sheet managers with local - preserve any local-only ones
+      S.managers = result.managers;
+      lsSet("hub:managers", S.managers);
+    }
+    if(result && result.techAccounts && result.techAccounts.length){
+      S.techAccounts = result.techAccounts;
+      lsSet("hub:techAccounts", S.techAccounts);
+    }
+  } catch(e){ console.warn("Load accounts:", e.message); }
+}
+
+async function saveAccountsToSheet(){
+  try {
+    await gs("saveAccountsServer", {managers: S.managers, techAccounts: S.techAccounts});
+  } catch(e){ console.warn("Save accounts:", e.message); }
+}
+
 async function syncFromSheet(){
   badge("syncing");
   try {
@@ -373,6 +394,7 @@ function showSetPin(){
       S.techAccounts = S.techAccounts.map(function(t){ return t.id===S.currentUser.id ? S.currentUser : t; });
     }
     save();
+    saveAccountsToSheet();
     login(S.role);
   };
 }
@@ -1210,19 +1232,19 @@ function addManager(){
   var tempPin = prompt("Temporary PIN (4-8 digits):");
   if(!tempPin||tempPin.length<4){ alert("PIN must be at least 4 digits."); return; }
   S.managers.push({id:"mgr_"+Date.now(),name:name.trim(),email:email||"",pin:"",tempPin:tempPin,isTemp:true});
-  save(); render();
+  save(); saveAccountsToSheet(); render();
 }
 
 function delManager(i){
   if(S.managers.length<=1){ alert("You must have at least one manager account."); return; }
-  if(confirm("Remove "+S.managers[i].name+"?")){ S.managers.splice(i,1); save(); render(); }
+  if(confirm("Remove "+S.managers[i].name+"?")){S.managers.splice(i,1);save();saveAccountsToSheet();render();}
 }
 
 function resetMgrPin(i){
   var tempPin = prompt("New temporary PIN for "+S.managers[i].name+":");
   if(!tempPin||tempPin.length<4){ alert("PIN must be at least 4 digits."); return; }
   S.managers[i].pin=""; S.managers[i].tempPin=tempPin; S.managers[i].isTemp=true;
-  save(); render(); alert("PIN reset. They will be prompted to set a new one on next login.");
+  save(); saveAccountsToSheet(); render(); alert("PIN reset. They will be prompted to set a new one on next login.");
 }
 
 function addTechAccount(){
@@ -1234,21 +1256,21 @@ function addTechAccount(){
   var newTech = {id:"tech_"+Date.now(),name:name.trim(),email:email||"",pin:"",tempPin:tempPin,isTemp:true};
   S.techAccounts.push(newTech);
   if(!S.techs.includes(name.trim())) S.techs.push(name.trim());
-  save();
+  save(); saveAccountsToSheet();
   // Add to sheet
   gs("addTechToSheetServer",{name:name.trim(),email:email||""}).catch(function(e){ console.warn("Sheet write:",e); });
   render();
 }
 
 function delTechAccount(i){
-  if(confirm("Remove "+S.techAccounts[i].name+"?")){ S.techAccounts.splice(i,1); save(); render(); }
+  if(confirm("Remove "+S.techAccounts[i].name+"?")){ S.techAccounts.splice(i,1); save(); saveAccountsToSheet(); render(); }
 }
 
 function resetTechPin(i){
   var tempPin = prompt("New temporary PIN for "+S.techAccounts[i].name+":");
   if(!tempPin||tempPin.length<4){ alert("PIN must be at least 4 digits."); return; }
   S.techAccounts[i].pin=""; S.techAccounts[i].tempPin=tempPin; S.techAccounts[i].isTemp=true;
-  save(); render(); alert("PIN reset. They will be prompted to set a new one on next login.");
+  save(); saveAccountsToSheet(); render(); alert("PIN reset. They will be prompted to set a new one on next login.");
 }
 
 function savePins(){
@@ -1270,6 +1292,8 @@ document.addEventListener("change",function(e){
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 load();
 // logo via CSS
+// Load accounts from sheet immediately on startup
+loadAccountsFromSheet();
 
 // Run immediately
 var dbg = document.getElementById("debug");
