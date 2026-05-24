@@ -167,7 +167,13 @@ const DEFAULT_CATS = [
 
 // ─── State ───────────────────────────────────────────────────────────────────
 const S = {
-  role:null, pins:{manager:"1234",tech:"5678"}, managerName:"Manager",
+  role:null, currentUser:null,
+  managers:[
+    {id:"mgr1",name:"John Kluttz",email:"john.kluttz@fox-marketingservices.com",pin:"",tempPin:"1234",isTemp:true},
+    {id:"mgr2",name:"Rockey Martin",email:"rockey.martin@fox-marketingservices.com",pin:"",tempPin:"5678",isTemp:true}
+  ],
+  techAccounts:[], // {id, name, email, pin, tempPin, isTemp}
+  managerName:"Manager",
   trucks:["Truck 1","Truck 2","Truck 3","Truck 4","Truck 5","Truck 6","Truck 7","Truck 8","Truck 9"],
   techs:[], techEmails:[], cats:DEFAULT_CATS,
   inspections:[], products:[], checkouts:[], orders:[],
@@ -180,10 +186,15 @@ const S = {
 
 function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
-function save(){["pins","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders"].forEach(k=>lsSet("hub:"+k,S[k]));}
+function save(){["managers","techAccounts","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders"].forEach(k=>lsSet("hub:"+k,S[k]));}
 function load(){
-  ["pins","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders"].forEach(k=>{const v=lsGet("hub:"+k);if(v!=null)S[k]=v;});
+  ["managers","techAccounts","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders"].forEach(k=>{const v=lsGet("hub:"+k);if(v!=null)S[k]=v;});
   if(!S.products||!S.products.length) S.products=JSON.parse(JSON.stringify(SEED));
+  if(!S.managers||!S.managers.length) S.managers=[
+    {id:"mgr1",name:"John Kluttz",email:"john.kluttz@fox-marketingservices.com",pin:"",tempPin:"1234",isTemp:true},
+    {id:"mgr2",name:"Rockey Martin",email:"rockey.martin@fox-marketingservices.com",pin:"",tempPin:"5678",isTemp:true}
+  ];
+  if(!S.techAccounts) S.techAccounts=[];
 }
 
 // ─── Apps Script Bridge ──────────────────────────────────────────────────────
@@ -233,9 +244,28 @@ function gs(fn, data){
 async function syncFromSheet(){
   badge("syncing");
   try {
-    const [pr,tc] = await Promise.all([gs("getProductsServer"),gs("getTechsServer")]);
+    const [pr,tc] = await Promise.all([gs("getProductsServer",null),gs("getTechsServer",null)]);
     if(pr&&pr.products&&pr.products.length){S.products=pr.products;lsSet("hub:products",pr.products);}
-    if(tc&&tc.techs&&tc.techs.length){S.techs=tc.techs.map(t=>t.name);S.techEmails=tc.techs;lsSet("hub:techs",S.techs);lsSet("hub:techEmails",S.techEmails);}
+    if(tc&&tc.techs&&tc.techs.length){
+      S.techs=tc.techs.map(t=>t.name);
+      S.techEmails=tc.techs;
+      lsSet("hub:techs",S.techs);
+      lsSet("hub:techEmails",S.techEmails);
+      // Merge sheet techs into techAccounts - add new ones, preserve PINs
+      tc.techs.forEach(function(t){
+        var existing = S.techAccounts.find(function(a){ return a.name===t.name; });
+        if(!existing){
+          S.techAccounts.push({
+            id:"tech_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),
+            name:t.name, email:t.email,
+            pin:"", tempPin:"0000", isTemp:true
+          });
+        } else {
+          existing.email = t.email; // Update email in case it changed
+        }
+      });
+      lsSet("hub:techAccounts",S.techAccounts);
+    }
     badge("done");
   } catch(e){ console.warn("Sync:",e.message); badge("err"); }
   render();
@@ -262,28 +292,113 @@ function ring(pct,sz){sz=sz||80;const r=(sz-10)/2,c=2*Math.PI*r,o=c-(pct/100)*c,
 // ─── PIN ──────────────────────────────────────────────────────────────────────
 let pin="";
 function pinTap(k){
-  const dbg=document.getElementById("debug");
   const err=document.getElementById("pin-err");
-  if(k==="del"){pin=pin.slice(0,-1);dots();if(err)err.textContent="";if(dbg)dbg.textContent="PIN: "+pin;return;}
+  if(k==="del"){pin=pin.slice(0,-1);dots();if(err)err.textContent="";return;}
   if(pin.length>=6)return;
-  pin+=k;
-  if(dbg)dbg.textContent="PIN: "+pin;
-  dots();
-  if(pin===S.pins.manager) setTimeout(()=>login("manager"),200);
-  else if(pin===S.pins.tech) setTimeout(()=>login("tech"),200);
-  else if(pin.length>=4){if(err)err.textContent="Incorrect PIN";pin="";dots();if(dbg)dbg.textContent="PIN: (cleared)";}
+  pin+=k; dots();
+  if(pin.length>=4){
+    // Check managers
+    var mgr = S.managers.find(function(m){ return (m.isTemp?m.tempPin:m.pin)===pin; });
+    if(mgr){
+      S.currentUser=mgr;
+      S.managerName=mgr.name;
+      if(mgr.isTemp){ setTimeout(function(){ doLogin("manager",true); },200); }
+      else { setTimeout(function(){ login("manager"); },200); }
+      return;
+    }
+    // Check techs
+    var tech = S.techAccounts.find(function(t){ return (t.isTemp?t.tempPin:t.pin)===pin; });
+    if(tech){
+      S.currentUser=tech;
+      S.checkTech=tech.name;
+      if(tech.isTemp){ setTimeout(function(){ doLogin("tech",true); },200); }
+      else { setTimeout(function(){ login("tech"); },200); }
+      return;
+    }
+    if(pin.length>=4){ if(err)err.textContent="Incorrect PIN"; pin=""; dots(); }
+  }
+}
+
+function doLogin(role, isTemp){
+  if(isTemp){
+    // Show set PIN screen
+    S.role=role;
+    S._settingPin=true;
+    showSetPin();
+  } else {
+    login(role);
+  }
+}
+
+function showSetPin(){
+  var loginDiv = document.getElementById("login");
+  loginDiv.innerHTML = `
+    <img id="logo-login" alt="Fox Pest Control" style="height:80px;margin-bottom:32px;">
+    <div style="background:#0f1f38;border-radius:16px;padding:32px;width:100%;max-width:320px;border:1px solid #1e3a5f;">
+      <h2 style="text-align:center;font-size:18px;font-weight:600;margin-bottom:8px;">Welcome, `+S.currentUser.name.split(" ")[0]+`!</h2>
+      <p style="text-align:center;color:#64748b;font-size:13px;margin-bottom:20px;">Create your personal PIN</p>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">New PIN (4-8 digits)</label>
+        <input type="password" id="new-pin-1" class="inp" placeholder="Enter new PIN" maxlength="8">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Confirm PIN</label>
+        <input type="password" id="new-pin-2" class="inp" placeholder="Confirm new PIN" maxlength="8">
+      </div>
+      <div id="set-pin-err" style="color:#ef4444;font-size:13px;margin-bottom:12px;min-height:20px;text-align:center;"></div>
+      <button class="btn bp" id="set-pin-btn" style="width:100%;padding:14px;font-size:15px;">Set My PIN</button>
+    </div>
+    <p style="color:#334155;font-size:12px;margin-top:24px;">Fox Pest Control - Willamette Valley Branch</p>
+  `;
+  // Set logo
+  var logo = document.getElementById("logo-login");
+  if(logo) logo.style.cssText = "height:80px;width:200px;margin-bottom:32px;background-image:url(\""+LOGO_SRC+"\");background-size:contain;background-repeat:no-repeat;background-position:center;";
+  // Attach button handler
+  var btn = document.getElementById("set-pin-btn");
+  if(btn) btn.onclick = function(){
+    var p1 = document.getElementById("new-pin-1").value.replace(/[^0-9]/g,"");
+    var p2 = document.getElementById("new-pin-2").value.replace(/[^0-9]/g,"");
+    var errDiv = document.getElementById("set-pin-err");
+    if(p1.length < 4){ errDiv.textContent="PIN must be at least 4 digits."; return; }
+    if(p1 !== p2){ errDiv.textContent="PINs do not match."; return; }
+    // Save PIN
+    S.currentUser.pin = p1;
+    S.currentUser.isTemp = false;
+    S.currentUser.tempPin = "";
+    // Update in managers or techAccounts
+    if(S.role==="manager"){
+      S.managers = S.managers.map(function(m){ return m.id===S.currentUser.id ? S.currentUser : m; });
+    } else {
+      S.techAccounts = S.techAccounts.map(function(t){ return t.id===S.currentUser.id ? S.currentUser : t; });
+    }
+    save();
+    login(S.role);
+  };
 }
 function dots(){for(let i=0;i<4;i++){const d=document.getElementById("d"+i);if(d)d.className="pd"+(pin.length>i?" on":"");}}
 function login(role){
-  S.role=role; S.tab=role==="tech"?"checkout":"dashboard";
+  S.role=role;
+  S.tab=role==="tech"?"checkout":"dashboard";
+  if(S.currentUser) S.managerName=S.currentUser.name;
+  if(role==="tech" && S.currentUser) S.checkTech=S.currentUser.name;
   document.getElementById("login").style.display="none";
   document.getElementById("app").style.display="block";
   syncFromSheet();
 }
 function logout(){
-  S.role=null; pin=""; dots();
+  S.role=null; S.currentUser=null; S.checkTech=""; pin="";
+  // Restore original login screen HTML
   document.getElementById("app").style.display="none";
-  document.getElementById("login").style.display="flex";
+  var loginDiv = document.getElementById("login");
+  loginDiv.style.display="flex";
+  // Re-attach pin buttons if they were replaced
+  var pk1 = document.getElementById("pk1");
+  if(!pk1){
+    // Login screen was replaced by set-PIN screen, reload page
+    location.reload();
+    return;
+  }
+  dots();
   const err=document.getElementById("pin-err");if(err)err.textContent="";
 }
 
@@ -364,6 +479,12 @@ function handleAction(a,v,el,e){
   if(a==="deny-order") { confirmDeny(v); return; }
   if(a==="settings-tab") { S.settingsTab=v; render(); return; }
   if(a==="save-pins") { savePins(); return; }
+  if(a==="add-mgr") { addManager(); return; }
+  if(a==="del-mgr") { delManager(parseInt(v)); return; }
+  if(a==="reset-mgr-pin") { resetMgrPin(parseInt(v)); return; }
+  if(a==="add-tech-account") { addTechAccount(); return; }
+  if(a==="del-tech-account") { delTechAccount(parseInt(v)); return; }
+  if(a==="reset-tech-pin") { resetTechPin(parseInt(v)); return; }
   if(a==="save-mgr-name") { S.managerName=document.getElementById("mgr-name-inp").value||S.managerName; save(); alert("Saved!"); return; }
   if(a==="add-truck") { const inp=document.getElementById("new-truck-inp"); if(inp&&inp.value.trim()){S.trucks.push(inp.value.trim());save();render();} return; }
   if(a==="del-truck") { if(confirm("Remove this truck?")){S.trucks.splice(parseInt(v),1);save();render();} return; }
@@ -725,7 +846,43 @@ function renderSettings(){
   const tabs=[{id:"access",l:"Access"},{id:"trucks",l:"Trucks"},{id:"techs",l:"Technicians"},{id:"cats",l:"Inspection"},{id:"prods",l:"Products"},{id:"me",l:"My Name"}];
   const tbns=tabs.map(t=>`<button class="stb${tab===t.id?" on":""}" data-a="settings-tab" data-v="${t.id}">${t.l}</button>`).join(" ");
   let body="";
-  if(tab==="access") body=`<p style="color:#475569;font-size:13px;margin-bottom:16px;">Set PIN codes for manager and technician access.</p><div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Manager PIN</label><input type="password" class="inp" id="pin-mgr-inp" value="${S.pins.manager}" maxlength="8" placeholder="4-8 digits"></div><div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Technician PIN</label><input type="password" class="inp" id="pin-tech-inp" value="${S.pins.tech}" maxlength="8" placeholder="4-8 digits"></div><button class="btn bp" data-a="save-pins">Save PINs</button>`;
+  if(tab==="access"){
+  var mgrRows = S.managers.map(function(m,i){
+    return `<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:12px 14px;">
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:14px;">${esc(m.name)}</div>
+        <div style="font-size:12px;color:#64748b;">${m.isTemp?"Temporary PIN: "+m.tempPin:"PIN set"} ${m.isTemp?'<span style="color:#f59e0b;">(not yet changed)</span>':"&#x2713;"}</div>
+      </div>
+      <button class="btn bg" style="padding:5px 10px;font-size:12px;" data-a="reset-mgr-pin" data-v="${i}">Reset PIN</button>
+      ${S.managers.length>1?`<button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-mgr" data-v="${i}">X</button>`:""}
+    </div>`;
+  }).join("");
+  var techRows = S.techAccounts.map(function(t,i){
+    return `<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:12px 14px;">
+      <div style="flex:1;">
+        <div style="font-weight:600;font-size:14px;">${esc(t.name)}</div>
+        <div style="font-size:12px;color:#64748b;">${t.isTemp?"Temp PIN: "+t.tempPin:"PIN set"} ${t.isTemp?'<span style="color:#f59e0b;">(not changed)</span>':"&#x2713;"}</div>
+      </div>
+      <button class="btn bg" style="padding:5px 10px;font-size:12px;" data-a="reset-tech-pin" data-v="${i}">Reset</button>
+      <button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-tech-account" data-v="${i}">X</button>
+    </div>`;
+  }).join("");
+  body = `<div style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <h3 style="font-size:15px;font-weight:600;">Manager Accounts</h3>
+      <button class="btn bp" style="padding:6px 12px;font-size:12px;" data-a="add-mgr">+ Add Manager</button>
+    </div>
+    ${mgrRows}
+  </div>
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <h3 style="font-size:15px;font-weight:600;">Technician Accounts</h3>
+      <button class="btn bp" style="padding:6px 12px;font-size:12px;" data-a="add-tech-account">+ Add Tech</button>
+    </div>
+    <p style="color:#475569;font-size:12px;margin-bottom:10px;">New techs get a temporary PIN. They set their own PIN on first login.</p>
+    ${techRows||'<div style="color:#475569;font-size:13px;">No tech accounts yet. Sync from sheet or add manually.</div>'}
+  </div>`;
+}
   else if(tab==="trucks") body=`<div style="display:flex;gap:8px;margin-bottom:14px;"><input type="text" class="inp" id="new-truck-inp" placeholder="e.g. Truck 10" style="flex:1;"><button class="btn bp" style="padding:10px 14px;font-size:13px;" data-a="add-truck">Add</button></div>${S.trucks.map((t,i)=>`<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:10px 14px;"><span style="flex:1;font-size:14px;font-weight:500;">${esc(t)}</span><button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-truck" data-v="${i}">X</button></div>`).join("")}`;
   else if(tab==="techs") body=`<div style="display:flex;gap:8px;margin-bottom:14px;"><input type="text" class="inp" id="new-tech-inp" placeholder="Full name" style="flex:1;"><button class="btn bp" style="padding:10px 14px;font-size:13px;" data-a="add-tech">Add</button></div>${S.techs.map((t,i)=>`<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:10px 14px;"><span style="flex:1;font-size:14px;font-weight:500;">${esc(t)}</span><button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-tech" data-v="${i}">X</button></div>`).join("")}`;
   else if(tab==="cats") body=renderCatSettings();
@@ -741,11 +898,57 @@ function renderCatSettings(){
   return `<button class="btn bp" style="width:100%;margin-bottom:14px;font-size:13px;" data-a="add-cat">+ Add Category</button>${rows}`;
 }
 
+function addManager(){
+  var name = prompt("Manager name:");
+  if(!name||!name.trim()) return;
+  var email = prompt("Manager email:");
+  var tempPin = prompt("Temporary PIN (4-8 digits):");
+  if(!tempPin||tempPin.length<4){ alert("PIN must be at least 4 digits."); return; }
+  S.managers.push({id:"mgr_"+Date.now(),name:name.trim(),email:email||"",pin:"",tempPin:tempPin,isTemp:true});
+  save(); render();
+}
+
+function delManager(i){
+  if(S.managers.length<=1){ alert("You must have at least one manager account."); return; }
+  if(confirm("Remove "+S.managers[i].name+"?")){ S.managers.splice(i,1); save(); render(); }
+}
+
+function resetMgrPin(i){
+  var tempPin = prompt("New temporary PIN for "+S.managers[i].name+":");
+  if(!tempPin||tempPin.length<4){ alert("PIN must be at least 4 digits."); return; }
+  S.managers[i].pin=""; S.managers[i].tempPin=tempPin; S.managers[i].isTemp=true;
+  save(); render(); alert("PIN reset. They will be prompted to set a new one on next login.");
+}
+
+function addTechAccount(){
+  var name = prompt("Technician name:");
+  if(!name||!name.trim()) return;
+  var email = prompt("Technician email:");
+  var tempPin = prompt("Temporary PIN (4-8 digits):");
+  if(!tempPin||tempPin.length<4){ alert("PIN must be at least 4 digits."); return; }
+  var newTech = {id:"tech_"+Date.now(),name:name.trim(),email:email||"",pin:"",tempPin:tempPin,isTemp:true};
+  S.techAccounts.push(newTech);
+  if(!S.techs.includes(name.trim())) S.techs.push(name.trim());
+  save();
+  // Add to sheet
+  gs("addTechToSheetServer",{name:name.trim(),email:email||""}).catch(function(e){ console.warn("Sheet write:",e); });
+  render();
+}
+
+function delTechAccount(i){
+  if(confirm("Remove "+S.techAccounts[i].name+"?")){ S.techAccounts.splice(i,1); save(); render(); }
+}
+
+function resetTechPin(i){
+  var tempPin = prompt("New temporary PIN for "+S.techAccounts[i].name+":");
+  if(!tempPin||tempPin.length<4){ alert("PIN must be at least 4 digits."); return; }
+  S.techAccounts[i].pin=""; S.techAccounts[i].tempPin=tempPin; S.techAccounts[i].isTemp=true;
+  save(); render(); alert("PIN reset. They will be prompted to set a new one on next login.");
+}
+
 function savePins(){
-  const m=(document.getElementById("pin-mgr-inp")?.value||"").replace(/[^0-9]/g,"");
-  const t=(document.getElementById("pin-tech-inp")?.value||"").replace(/[^0-9]/g,"");
-  if(m.length<4||t.length<4){alert("PINs must be at least 4 digits.");return;}
-  S.pins={manager:m,tech:t}; save(); alert("PINs saved!");
+  // Legacy - no longer used but kept for safety
+  alert("Use the account manager above to change PINs.");
 }
 
 // ─── Photo upload ─────────────────────────────────────────────────────────────
