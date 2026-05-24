@@ -108,7 +108,8 @@ input,textarea,select,button{font-family:inherit;}
 
 <script>
 // ─── Data ────────────────────────────────────────────────────────────────────
-const MGMT = ["john.kluttz@fox-marketingservices.com","rockey.martin@fox-marketingservices.com"];
+// MGMT emails pulled dynamically from manager accounts
+function getMGMT(){ return S.managers.filter(function(m){return m.email;}).map(function(m){return m.email;}); }
 const LOGO_SRC = "data:image/png;base64,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";
 
 const SEED = [
@@ -170,8 +171,7 @@ const DEFAULT_CATS = [
 const S = {
   role:null, currentUser:null,
   managers:[
-    {id:"mgr1",name:"John Kluttz",email:"john.kluttz@fox-marketingservices.com",pin:"",tempPin:"1234",isTemp:true},
-    {id:"mgr2",name:"Rockey Martin",email:"rockey.martin@fox-marketingservices.com",pin:"",tempPin:"5678",isTemp:true}
+    {id:"mgr1",name:"John Kluttz",email:"john.kluttz@fox-marketingservices.com",pin:"",tempPin:"1234",isTemp:true}
   ],
   techAccounts:[], // {id, name, email, pin, tempPin, isTemp}
   managerName:"Manager",
@@ -193,8 +193,7 @@ function load(){
   ["managers","techAccounts","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders","truckInventories"].forEach(k=>{const v=lsGet("hub:"+k);if(v!=null)S[k]=v;});
   if(!S.products||!S.products.length) S.products=JSON.parse(JSON.stringify(SEED));
   if(!S.managers||!S.managers.length) S.managers=[
-    {id:"mgr1",name:"John Kluttz",email:"john.kluttz@fox-marketingservices.com",pin:"",tempPin:"1234",isTemp:true},
-    {id:"mgr2",name:"Rockey Martin",email:"rockey.martin@fox-marketingservices.com",pin:"",tempPin:"5678",isTemp:true}
+    {id:"mgr1",name:"John Kluttz",email:"john.kluttz@fox-marketingservices.com",pin:"",tempPin:"1234",isTemp:true}
   ];
   if(!S.techAccounts) S.techAccounts=[];
 }
@@ -778,8 +777,14 @@ async function submitCheckout(){
   // For techs: check truck inventory
   if(!isM){
     const truckInv=(S.truckInventories[tech]||{}).products||[];
+    const truckKeys=Object.keys(S.truckInventories);
+    console.log("Tech name used for lookup:",tech);
+    console.log("Truck inventory keys:",truckKeys);
+    console.log("Products in truck inv:",truckInv.map(function(t){return t.name+"|"+t.id+"|qty:"+t.qty;}));
+    console.log("Valid items productIds:",valid.map(function(i){return i.productId;}));
     const hasOnTruck=valid.filter(function(item){
       const t=truckInv.find(function(t){return t.id===item.productId;});
+      console.log("Match check - productId:"+item.productId+" found:",t?t.name:"NO MATCH");
       return t&&t.qty>0;
     });
     if(hasOnTruck.length>0){
@@ -806,7 +811,7 @@ async function submitCheckout(){
     } else {
       const order={id:"ORD-"+Date.now(),date:new Date().toISOString(),tech,techEmail:te?.email||"",product:prod.name,productId:prod.id,requestedQty:parseInt(item.qty),unit:prod.unit,notes:item.notes||"",status:"Pending"};
       S.orders.unshift(order);
-      try { await gs("addPendingOrderServer",order); await gs("sendEmailServer",{to:MGMT.join(","),subject:"[Fox Pest Control] Product Request - "+order.tech+" - "+order.product,body:"Product Request\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nQty: "+order.requestedQty+" "+order.unit+(order.notes?"\nNotes: "+order.notes:"")+"\n\nLog in to Admin Hub to approve or deny.\nOrder ID: "+order.id}); } catch(e){}
+      try { await gs("addPendingOrderServer",order); await gs("sendEmailServer",{to:getMGMT().join(","),subject:"[Fox Pest Control] Product Request - "+order.tech+" - "+order.product,body:"Product Request\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nQty: "+order.requestedQty+" "+order.unit+(order.notes?"\nNotes: "+order.notes:"")+"\n\nLog in to Admin Hub to approve or deny.\nOrder ID: "+order.id}); } catch(e){}
     }
   }
   save(); S.checkDone=true; render();
@@ -844,7 +849,7 @@ async function confirmApprove(orderId){
   if(prod){const nq=Math.max(0,prod.qty-qty);prod.qty=nq;try{await gs("updateQtyServer",{row:prod.row,qty:nq});}catch(e){}}
   order.status="Approved"; order.approvedQty=qty; order.approvedBy=S.managerName;
   S.editOrderId=null; save(); render();
-  const te=[order.techEmail,...MGMT].filter(Boolean).join(",");
+  const te=[order.techEmail,...getMGMT()].filter(Boolean).join(",");
   try { await gs("updateOrderStatusServer",{orderId,status:"Approved",approvedQty:qty,approvedBy:S.managerName}); await gs("addOrderHistoryServer",{...order,approvedQty:qty,approvedBy:S.managerName}); await gs("sendEmailServer",{to:te,subject:"[Fox Pest Control] Order Approved - "+order.product,body:"Your product request has been APPROVED\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nApproved Qty: "+qty+" "+order.unit+"\nApproved By: "+S.managerName+"\n\nItems will be ready for pickup.\n\nAutomated notification from Fox Admin Hub."}); } catch(e){}
   const low=S.products.filter(p=>p.qty<=p.lowAt);
   if(low.length) sendLowEmail(low);
@@ -855,13 +860,13 @@ async function confirmDeny(orderId){
   const order=S.orders.find(o=>o.id===orderId); if(!order) return;
   order.status="Denied"; order.approvedBy=S.managerName; order.denyReason=reason;
   S.editOrderId=null; save(); render();
-  const te=[order.techEmail,...MGMT].filter(Boolean).join(",");
+  const te=[order.techEmail,...getMGMT()].filter(Boolean).join(",");
   try { await gs("updateOrderStatusServer",{orderId,status:"Denied",approvedQty:0,approvedBy:S.managerName}); await gs("sendEmailServer",{to:te,subject:"[Fox Pest Control] Order Denied - "+order.product,body:"Your product request has been DENIED\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nDenied By: "+S.managerName+(reason?"\nReason: "+reason:"")+"\n\nContact your manager with questions.\n\nAutomated notification from Fox Admin Hub."}); } catch(e){}
 }
 
 async function sendLowEmail(low){
   const list=low.map(p=>"  - "+p.name+": "+p.qty+" "+p.unit+" (min: "+p.lowAt+")").join("\n");
-  try { await gs("sendEmailServer",{to:MGMT.join(","),subject:"[Fox Pest Control] Low Stock Alert - "+low.length+" item"+(low.length>1?"s":"")+" need restocking",body:"Low Stock Alert - Willamette Valley\n\n"+list+"\n\nPlease restock soon.\n\nAutomated notification."}); } catch(e){}
+  try { await gs("sendEmailServer",{to:getMGMT().join(","),subject:"[Fox Pest Control] Low Stock Alert - "+low.length+" item"+(low.length>1?"s":"")+" need restocking",body:"Low Stock Alert - Willamette Valley\n\n"+list+"\n\nPlease restock soon.\n\nAutomated notification."}); } catch(e){}
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -1051,7 +1056,7 @@ async function tiSubmit(){
       +"\n\nPlease review with the technician.\n\nAutomated notification from Fox Admin Hub.";
     try {
       await gs("sendEmailServer", {
-        to: MGMT.join(","),
+        to: getMGMT().join(","),
         subject: "[Fox Pest Control] Truck Inventory Variance - "+techName+" - "+variances.length+" item"+(variances.length>1?"s":""),
         body: emailBody
       });
