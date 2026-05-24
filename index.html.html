@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a1628">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fox Admin">
+<link rel="manifest" href="manifest.json">
+<title>Fox Pest Control Admin Hub</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a1628;color:#e2e8f0;font-family:'Segoe UI',sans-serif;min-height:100vh;font-size:15px;}
+input,textarea,select,button{font-family:inherit;}
+.btn{cursor:pointer;border:none;border-radius:8px;font-weight:600;transition:all .15s;padding:10px 18px;font-size:14px;}
+.btn:active{transform:scale(.97);}
+.bp{background:#2563eb;color:#fff;} .bp:hover{background:#1d4ed8;}
+.bg{background:transparent;color:#94a3b8;border:1px solid #1e3a5f;} .bg:hover{border-color:#3b82f6;color:#e2e8f0;}
+.bs{background:#16a34a;color:#fff;} .bs:hover{background:#15803d;}
+.bd{background:#dc2626;color:#fff;padding:6px 12px;font-size:12px;} .bd:hover{background:#b91c1c;}
+.card{background:#0f1f38;border-radius:12px;border:1px solid #1e3a5f;padding:16px;}
+.inp{background:#0a1628;color:#e2e8f0;border:1px solid #1e3a5f;border-radius:8px;padding:9px 12px;font-size:14px;width:100%;outline:none;}
+.inp:focus{border-color:#3b82f6;}
+#hdr{background:#0a1628;border-bottom:1px solid #1e3a5f;padding:0 16px;position:sticky;top:0;z-index:50;}
+#hdr-in{max-width:760px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px;}
+#nav{display:flex;gap:2px;}
+.nb{display:flex;align-items:center;gap:4px;padding:6px 9px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:#64748b;}
+.nb.on{background:#1e3a5f;color:#93c5fd;}
+.bdg{background:#ef4444;color:#fff;border-radius:50%;width:15px;height:15px;font-size:10px;display:inline-flex;align-items:center;justify-content:center;margin-left:2px;}
+#wrap{max-width:760px;margin:0 auto;padding:20px 14px;}
+.pg{display:none;} .pg.on{display:block;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.sc{background:#0f1f38;border-radius:12px;border:1px solid #1e3a5f;padding:16px;}
+.al-o{background:#431407;border:1px solid #c2410c;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;gap:8px;align-items:center;cursor:pointer;}
+.al-a{background:#1c1100;border:1px solid #92400e;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;gap:8px;align-items:center;cursor:pointer;}
+.sbdg{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+.pb{height:3px;background:#0f1f38;border-radius:2px;margin-bottom:16px;}
+.pf{height:100%;background:#2563eb;border-radius:2px;transition:width .3s;}
+.skb{width:34px;height:34px;border-radius:7px;border:1px solid #1e3a5f;cursor:pointer;font-weight:700;font-size:13px;background:#0a1628;color:#64748b;}
+.skb.on{color:#fff;}
+.fb{padding:5px 12px;border-radius:7px;border:1px solid #1e3a5f;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:#64748b;}
+.fb.on{background:#1e3a5f;border-color:#3b82f6;color:#93c5fd;}
+.stb{padding:6px 12px;border-radius:7px;border:1px solid #1e3a5f;cursor:pointer;font-size:13px;font-weight:500;background:transparent;color:#64748b;}
+.stb.on{background:#1e3a5f;border-color:#3b82f6;color:#93c5fd;}
+#login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.pd{width:14px;height:14px;border-radius:50%;background:#1e3a5f;transition:background .15s;display:inline-block;}
+.pd.on{background:#3b82f6;}
+.pk{background:#162235;color:#e2e8f0;border:1px solid #1e3a5f;border-radius:10px;padding:16px 0;font-size:20px;font-weight:600;cursor:pointer;width:100%;text-align:center;-webkit-tap-highlight-color:transparent;}
+.pk:active{background:#1e3a5f;}
+.pk.del{background:#1e293b;color:#94a3b8;font-size:14px;}
+.tag-low{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#431407;color:#fb923c;}
+#logo-login,#logo-app{background-image:url("data:image/png;base64,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");background-size:contain;background-repeat:no-repeat;background-position:center;}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div id="logo-login" style="height:80px;width:200px;margin-bottom:32px;"></div>
+  <div style="background:#0f1f38;border-radius:16px;padding:32px;width:100%;max-width:320px;border:1px solid #1e3a5f;">
+    <h2 style="text-align:center;font-size:18px;font-weight:600;margin-bottom:8px;">Admin Hub</h2>
+    <p style="text-align:center;color:#64748b;font-size:13px;margin-bottom:24px;">Enter your PIN to continue</p>
+    <div style="display:flex;justify-content:center;gap:10px;margin-bottom:24px;" id="dots">
+      <span class="pd" id="d0"></span><span class="pd" id="d1"></span><span class="pd" id="d2"></span><span class="pd" id="d3"></span>
+    </div>
+    <div id="debug" style="text-align:center;color:#64748b;font-size:12px;margin-bottom:8px;"></div>
+    <div id="pin-err" style="text-align:center;color:#ef4444;font-size:13px;margin-bottom:12px;min-height:20px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="pinpad">
+      <button class="pk" data-pin="1">1</button>
+      <button class="pk" data-pin="2">2</button>
+      <button class="pk" data-pin="3">3</button>
+      <button class="pk" data-pin="4">4</button>
+      <button class="pk" data-pin="5">5</button>
+      <button class="pk" data-pin="6">6</button>
+      <button class="pk" data-pin="7">7</button>
+      <button class="pk" data-pin="8">8</button>
+      <button class="pk" data-pin="9">9</button>
+      <div></div>
+      <button class="pk" data-pin="0">0</button>
+      <button class="pk del" data-pin="del">&larr;</button>
+    </div>
+  </div>
+  <p style="color:#334155;font-size:12px;margin-top:24px;">Fox Pest Control - Willamette Valley Branch</p>
+</div>
+
+<div id="app" style="display:none;">
+  <div id="hdr"><div id="hdr-in">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div id="logo-app" style="height:30px;width:80px;"></div>
+      <span id="sync-badge" style="font-size:10px;padding:2px 7px;border-radius:10px;display:none;"></span>
+    </div>
+    <div id="nav"></div>
+    <button class="nb" id="logout-btn">Exit</button>
+  </div></div>
+  <div id="wrap">
+    <div id="pg-dashboard" class="pg"></div>
+    <div id="pg-inspect" class="pg"></div>
+    <div id="pg-inventory" class="pg"></div>
+    <div id="pg-orders" class="pg"></div>
+    <div id="pg-checkout" class="pg"></div>
+    <div id="pg-settings" class="pg"></div>
+  </div>
+</div>
+
+
+<script>
+// ─── Data ────────────────────────────────────────────────────────────────────
+const MGMT = ["john.kluttz@fox-marketingservices.com","rockey.martin@fox-marketingservices.com"];
+const LOGO_SRC = "data:image/png;base64,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";
+
+const SEED = [
+  {id:"sheet_2",name:"Advion Ant Gel 4pk 30g",unit:"4 pack",qty:13,lowAt:3,row:2},
+  {id:"sheet_3",name:"Advion Roach 4 pk 30g",unit:"syringe",qty:8,lowAt:2,row:3},
+  {id:"sheet_4",name:"Alpine PT Bait 16 oz",unit:"Can",qty:16,lowAt:3,row:4},
+  {id:"sheet_5",name:"Alpine WSG",unit:"Jar",qty:5,lowAt:2,row:5},
+  {id:"sheet_6",name:"Avert DF 1.06 oz",unit:"Tube",qty:11,lowAt:2,row:6},
+  {id:"sheet_7",name:"B&G 1 gal",unit:"Each",qty:2,lowAt:1,row:7},
+  {id:"sheet_8",name:"Bifen I/T (1gal)",unit:"Jug",qty:0,lowAt:0,row:8},
+  {id:"sheet_9",name:"Bifenthrin Granules 25 lb",unit:"Bag",qty:87,lowAt:5,row:9},
+  {id:"sheet_10",name:"Catchmaster Glue Board 72 units",unit:"Case",qty:10,lowAt:4,row:10},
+  {id:"sheet_11",name:"Cimexa Dust 4oz",unit:"Bottle",qty:7,lowAt:2,row:11},
+  {id:"sheet_12",name:"Contrac Blocks 18 lb",unit:"Bucket",qty:14,lowAt:5,row:12},
+  {id:"sheet_13",name:"Crossfire Aerosol 17 oz",unit:"Can",qty:1,lowAt:0,row:13},
+  {id:"sheet_14",name:"Demand CS (32oz)",unit:"Bottle",qty:0,lowAt:0,row:14},
+  {id:"sheet_15",name:"Essentria IC Pro 32 oz",unit:"Bottle",qty:9,lowAt:1,row:15},
+  {id:"sheet_16",name:"Evo Express",unit:"Each",qty:184,lowAt:15,row:16},
+  {id:"sheet_17",name:"FlowZone Typhoon 2.5 4gal MCP",unit:"Each",qty:3,lowAt:1,row:17},
+  {id:"sheet_18",name:"Instant Soap 9 oz",unit:"Can",qty:5,lowAt:3,row:18},
+  {id:"sheet_19",name:"Intice Bait 10 lb",unit:"Bag",qty:4,lowAt:3,row:19},
+  {id:"sheet_20",name:"Intice Shaker Empty",unit:"Jar",qty:11,lowAt:3,row:20},
+  {id:"sheet_21",name:"Invade Hot Spot",unit:"Can",qty:12,lowAt:2,row:21},
+  {id:"sheet_22",name:"Large Nitrile Gloves",unit:"Box",qty:-6,lowAt:2,row:22},
+  {id:"sheet_23",name:"Maxforce FC Bait Stations 24 units",unit:"Bag",qty:-5,lowAt:2,row:23},
+  {id:"sheet_24",name:"Medium Nitrile Gloves",unit:"Box",qty:0,lowAt:2,row:24},
+  {id:"sheet_25",name:"Onslaught Fastcap 1 pint",unit:"Bottle",qty:2,lowAt:0,row:25},
+  {id:"sheet_26",name:"Pivot Ultra Plus Fea",unit:"Can",qty:24,lowAt:4,row:26},
+  {id:"sheet_27",name:"Provoke Mouse 2 oz",unit:"Bottle",qty:3,lowAt:3,row:27},
+  {id:"sheet_28",name:"Provoke Rat 8 oz",unit:"Bottle",qty:5,lowAt:2,row:28},
+  {id:"sheet_29",name:"Puffy D Bulb Duster",unit:"Each",qty:3,lowAt:2,row:29},
+  {id:"sheet_30",name:"Shoe Covers",unit:"Pair",qty:70,lowAt:10,row:30},
+  {id:"sheet_31",name:"Small Nitrile Gloves",unit:"Box",qty:0,lowAt:2,row:31},
+  {id:"sheet_32",name:"Snake Out",unit:"Jug",qty:2,lowAt:1,row:32},
+  {id:"sheet_33",name:"Stryker 15 oz",unit:"Can",qty:1,lowAt:5,row:33},
+  {id:"sheet_34",name:"Suspend Polyzone 1 Gal",unit:"Bottle",qty:2,lowAt:0,row:34},
+  {id:"sheet_35",name:"Tandem 32oz",unit:"Bottle",qty:0,lowAt:5,row:35},
+  {id:"sheet_36",name:"Taurus SC 78 oz",unit:"Bottle",qty:2,lowAt:3,row:36},
+  {id:"sheet_37",name:"Tempo 1% Dust",unit:"Bottle",qty:0,lowAt:5,row:37},
+  {id:"sheet_38",name:"Victor Mouse Traps 72 units",unit:"Case",qty:14,lowAt:3,row:38},
+  {id:"sheet_39",name:"Victor Rat Traps 12 Units",unit:"Case",qty:9,lowAt:3,row:39},
+  {id:"sheet_40",name:"Web Duster Head",unit:"Each",qty:69,lowAt:0,row:40},
+  {id:"sheet_41",name:"Xcluder 4x10 roll",unit:"Roll",qty:7,lowAt:3,row:41},
+  {id:"sheet_42",name:"XL Nitrile Gloves",unit:"Box",qty:0,lowAt:2,row:42},
+  {id:"sheet_43",name:"Xlure Phereomone Trap 6x24 traps",unit:"Pack",qty:11,lowAt:2,row:43}
+];
+
+const DEFAULT_CATS = [
+  {id:"exterior",label:"Exterior / Body Condition",scale:10,items:[{id:"paint",label:"Paint & Finish",hc:true},{id:"dents",label:"Dents / Damage",hc:true},{id:"windows",label:"Windows & Mirrors",hc:false},{id:"clean",label:"Overall Cleanliness",hc:false}]},
+  {id:"tires",label:"Tires & Wheels",scale:5,items:[{id:"tread",label:"Tread Depth",hc:false},{id:"pressure",label:"Tire Pressure",hc:false},{id:"sidewall",label:"Sidewall Condition",hc:true},{id:"rims",label:"Rims / Wheel Condition",hc:true}]},
+  {id:"lights",label:"Lights & Signals",scale:3,items:[{id:"head",label:"Headlights",hc:false},{id:"tail",label:"Tail Lights",hc:false},{id:"turn",label:"Turn Signals",hc:false},{id:"haz",label:"Hazard Lights",hc:false},{id:"work",label:"Work / Aux Lights",hc:true}]},
+  {id:"engine",label:"Engine / Under Hood",scale:10,items:[{id:"eclean",label:"Engine Cleanliness",hc:false},{id:"belts",label:"Belts & Hoses",hc:true},{id:"battery",label:"Battery Condition",hc:true},{id:"leaks",label:"No Leaks Present",hc:true}]},
+  {id:"interior",label:"Cab Interior",scale:10,items:[{id:"cabclean",label:"Cab Cleanliness",hc:false},{id:"dash",label:"Dashboard / Gauges",hc:true},{id:"belts2",label:"Seat Belts",hc:false},{id:"controls",label:"Controls & Switches",hc:false}]},
+  {id:"fluids",label:"Fluid Levels",scale:3,items:[{id:"oil",label:"Engine Oil",hc:false},{id:"coolant",label:"Coolant",hc:false},{id:"brake_fl",label:"Brake Fluid",hc:false},{id:"washer",label:"Washer Fluid",hc:false}]},
+  {id:"brakes",label:"Brakes",scale:5,items:[{id:"feel",label:"Brake Feel / Response",hc:true},{id:"park",label:"Parking Brake",hc:false},{id:"noise",label:"No Unusual Noises",hc:true}]},
+];
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const S = {
+  role:null, pins:{manager:"1234",tech:"5678"}, managerName:"Manager",
+  trucks:["Truck 1","Truck 2","Truck 3","Truck 4","Truck 5","Truck 6","Truck 7","Truck 8","Truck 9"],
+  techs:[], techEmails:[], cats:DEFAULT_CATS,
+  inspections:[], products:[], checkouts:[], orders:[],
+  tab:"dashboard", inspView:"home", inspStep:0, inspData:{},
+  invView:"list", checkDone:false, checkItems:[], checkTech:"",
+  ordersFilter:"Pending", settingsTab:"access",
+  detailInsp:null, editOrderId:null, editOrderType:null,
+  openCat:null, inspListFilter:"all",
+};
+
+function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+function save(){["pins","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders"].forEach(k=>lsSet("hub:"+k,S[k]));}
+function load(){
+  ["pins","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders"].forEach(k=>{const v=lsGet("hub:"+k);if(v!=null)S[k]=v;});
+  if(!S.products||!S.products.length) S.products=JSON.parse(JSON.stringify(SEED));
+}
+
+// ─── Apps Script Bridge via fetch ────────────────────────────────────────────
+const BRIDGE = "https://script.google.com/macros/s/AKfycbzX1SVGdraGV6GpjQfwZguWx1IDXQ-OkHqeU-W0C5q9pvojRFY0OgYY-cZ96bFwDUNN/exec";
+
+function gs(fn, data){
+  return new Promise(function(res, rej){
+    var action = fn.replace("Server","");
+    if(data === null || data === undefined){
+      // GET request
+      fetch(BRIDGE + "?action=" + action)
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if(d.error) rej(new Error(d.error)); else res(d); })
+        .catch(rej);
+    } else {
+      // POST request
+      fetch(BRIDGE, {
+        method: "POST",
+        headers: {"Content-Type": "text/plain"},
+        body: JSON.stringify({action: action, data: data})
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if(d.error) rej(new Error(d.error)); else res(d); })
+        .catch(rej);
+    }
+  });
+}
+
+async function syncFromSheet(){
+  badge("syncing");
+  try {
+    const [pr,tc] = await Promise.all([gs("getProductsServer"),gs("getTechsServer")]);
+    if(pr&&pr.products&&pr.products.length){S.products=pr.products;lsSet("hub:products",pr.products);}
+    if(tc&&tc.techs&&tc.techs.length){S.techs=tc.techs.map(t=>t.name);S.techEmails=tc.techs;lsSet("hub:techs",S.techs);lsSet("hub:techEmails",S.techEmails);}
+    badge("done");
+  } catch(e){ console.warn("Sync:",e.message); badge("err"); }
+  render();
+}
+
+function badge(s){
+  const b=document.getElementById("sync-badge");
+  if(!b)return;
+  b.style.display="inline";
+  if(s==="syncing"){b.style.cssText="font-size:10px;padding:2px 7px;border-radius:10px;display:inline;background:#0d1f3c;color:#3b82f6;border:1px solid #1e3a5f;";b.textContent="Syncing";}
+  else if(s==="done"){b.style.cssText="font-size:10px;padding:2px 7px;border-radius:10px;display:inline;background:#052e16;color:#22c55e;border:1px solid #166534;";b.textContent="Synced";setTimeout(()=>b.style.display="none",3000);}
+  else{b.style.cssText="font-size:10px;padding:2px 7px;border-radius:10px;display:inline;background:#1c0a00;color:#f97316;border:1px solid #7c2d12;";b.textContent="Offline";}
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function uid(){return Math.random().toString(36).slice(2,9);}
+function fd(iso){return new Date(iso).toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"});}
+function sc(p){return p>=90?"#22c55e":p>=75?"#84cc16":p>=60?"#f59e0b":p>=40?"#f97316":"#ef4444";}
+function sl(p){return p>=90?"Excellent":p>=75?"Good":p>=60?"Fair":p>=40?"Poor":"Failing";}
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function ring(pct,sz){sz=sz||80;const r=(sz-10)/2,c=2*Math.PI*r,o=c-(pct/100)*c,col=sc(pct);
+  return '<svg width="'+sz+'" height="'+sz+'" style="display:block;margin:0 auto"><circle cx="'+sz/2+'" cy="'+sz/2+'" r="'+r+'" fill="none" stroke="#1e293b" stroke-width="8"/><circle cx="'+sz/2+'" cy="'+sz/2+'" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="8" stroke-dasharray="'+c+'" stroke-dashoffset="'+o+'" stroke-linecap="round" transform="rotate(-90 '+sz/2+' '+sz/2+')"/><text x="'+sz/2+'" y="'+(sz/2+5)+'" text-anchor="middle" fill="'+col+'" font-size="'+(sz/4)+'" font-weight="700" font-family="monospace">'+pct+'%</text></svg>';}
+
+// ─── PIN ──────────────────────────────────────────────────────────────────────
+let pin="";
+function pinTap(k){
+  const dbg=document.getElementById("debug");
+  const err=document.getElementById("pin-err");
+  if(k==="del"){pin=pin.slice(0,-1);dots();if(err)err.textContent="";if(dbg)dbg.textContent="PIN: "+pin;return;}
+  if(pin.length>=6)return;
+  pin+=k;
+  if(dbg)dbg.textContent="PIN: "+pin;
+  dots();
+  if(pin===S.pins.manager) setTimeout(()=>login("manager"),200);
+  else if(pin===S.pins.tech) setTimeout(()=>login("tech"),200);
+  else if(pin.length>=4){if(err)err.textContent="Incorrect PIN";pin="";dots();if(dbg)dbg.textContent="PIN: (cleared)";}
+}
+function dots(){for(let i=0;i<4;i++){const d=document.getElementById("d"+i);if(d)d.className="pd"+(pin.length>i?" on":"");}}
+function login(role){
+  S.role=role; S.tab=role==="tech"?"checkout":"dashboard";
+  document.getElementById("login").style.display="none";
+  document.getElementById("app").style.display="block";
+  syncFromSheet();
+}
+function logout(){
+  S.role=null; pin=""; dots();
+  document.getElementById("app").style.display="none";
+  document.getElementById("login").style.display="flex";
+  const err=document.getElementById("pin-err");if(err)err.textContent="";
+}
+
+// ─── Event Delegation ────────────────────────────────────────────────────────
+// click delegation moved to window.load
+
+document.addEventListener("keydown",function(e){
+  if(document.getElementById("login").style.display==="none") return;
+  if(e.key>="0"&&e.key<="9") pinTap(e.key);
+  else if(e.key==="Backspace") pinTap("del");
+});
+
+document.addEventListener("change",function(e){
+  const t=e.target;
+  if(t.id==="check-tech") S.checkTech=t.value;
+  if(t.dataset.field&&t.dataset.idx!==undefined){
+    const idx=parseInt(t.dataset.idx);
+    if(S.checkItems[idx]!==undefined) S.checkItems[idx][t.dataset.field]=t.value;
+  }
+  if(t.id==="insp-truck") S.inspData.truck=t.value;
+  if(t.id==="insp-filter"){S.inspListFilter=t.value;render();}
+  if(t.dataset.prodid&&t.dataset.prodfield){
+    const p=S.products.find(x=>x.id===t.dataset.prodid);
+    if(p) p[t.dataset.prodfield]=t.dataset.prodfield==="unit"?t.value:(parseInt(t.value)||0);
+  }
+  if(t.id==="mgr-name-inp") S.managerName=t.value;
+  if(t.id==="pin-mgr-inp") S._pinMgr=t.value;
+  if(t.id==="pin-tech-inp") S._pinTech=t.value;
+  if(t.dataset.catid&&t.dataset.catfield){
+    const c=S.cats.find(x=>x.id===t.dataset.catid);
+    if(c){c[t.dataset.catfield]=t.dataset.catfield==="scale"?parseInt(t.value):t.value;}
+    save(); render();
+  }
+  if(t.dataset.catid&&t.dataset.itemid){
+    const c=S.cats.find(x=>x.id===t.dataset.catid);
+    if(c){const i=c.items.find(x=>x.id===t.dataset.itemid);if(i)i.label=t.value;save();}
+  }
+});
+
+document.addEventListener("input",function(e){
+  const t=e.target;
+  if(t.id==="insp-mileage") S.inspData.mileage=t.value;
+  if(t.id==="insp-inspector") S.inspData.inspector=t.value;
+  if(t.id==="insp-notes") S.inspData.notes=t.value;
+  if(t.dataset.commentkey) S.inspData.comments[t.dataset.commentkey]=t.value;
+  if(t.id==="new-truck-inp"||t.id==="new-tech-inp") {}
+});
+
+function handleAction(a,v,el,e){
+  if(a==="pin") { pinTap(v); return; }
+  if(a==="logout") { logout(); return; }
+  if(a==="tab") { S.tab=v; S.inspView="home"; S.invView="list"; S.checkDone=false; render(); return; }
+  if(a==="insp-view") { S.inspView=v; render(); return; }
+  if(a==="insp-start") { S.inspView="form"; S.inspStep=0; S.inspData={truck:S.trucks[0]||"",mileage:"",inspector:"",notes:"",scores:{},comments:{},photos:[]}; render(); return; }
+  if(a==="insp-next") { S.inspStep++; render(); return; }
+  if(a==="insp-back") { if(S.inspStep===0){S.inspView="home";}else{S.inspStep--;} render(); return; }
+  if(a==="insp-save") { saveInsp(); return; }
+  if(a==="insp-detail") { S.detailInsp=S.inspections.find(r=>r.id===v); S.inspView="detail"; render(); return; }
+  if(a==="insp-del") { if(confirm("Delete this inspection?")){S.inspections=S.inspections.filter(r=>r.id!==v);save();} S.inspView="list"; render(); return; }
+  if(a==="score") { const [ci,ii,n]=v.split("|"); const k=ci+":"+ii; const cur=S.inspData.scores[k]; if(cur===parseInt(n))delete S.inspData.scores[k]; else S.inspData.scores[k]=parseInt(n); render(); return; }
+  if(a==="add-photo") { document.getElementById("photo-file").click(); return; }
+  if(a==="del-photo") { S.inspData.photos.splice(parseInt(v),1); render(); return; }
+  if(a==="inv-view") { S.invView=v; render(); return; }
+  if(a==="open-restock") { S._restockId=v; S._adjId=null; render(); return; }
+  if(a==="open-adj") { S._adjId=v; S._restockId=null; render(); return; }
+  if(a==="close-panel") { S._restockId=null; S._adjId=null; render(); return; }
+  if(a==="do-restock") { doRestock(v); return; }
+  if(a==="do-adj") { doAdj(v); return; }
+  if(a==="sync") { syncFromSheet(); return; }
+  if(a==="add-check-item") { S.checkItems.push({id:uid(),productId:"",qty:"",notes:""}); render(); return; }
+  if(a==="del-check-item") { S.checkItems.splice(parseInt(v),1); render(); return; }
+  if(a==="submit-checkout") { submitCheckout(); return; }
+  if(a==="checkout-reset") { S.checkDone=false; S.checkItems=[{id:uid(),productId:"",qty:"",notes:""}]; S.checkTech=""; render(); return; }
+  if(a==="order-filter") { S.ordersFilter=v; render(); return; }
+  if(a==="order-action") { const [id,type]=v.split("|"); S.editOrderId=id; S.editOrderType=type; render(); return; }
+  if(a==="order-action-cancel") { S.editOrderId=null; render(); return; }
+  if(a==="approve-order") { confirmApprove(v); return; }
+  if(a==="deny-order") { confirmDeny(v); return; }
+  if(a==="settings-tab") { S.settingsTab=v; render(); return; }
+  if(a==="save-pins") { savePins(); return; }
+  if(a==="save-mgr-name") { S.managerName=document.getElementById("mgr-name-inp").value||S.managerName; save(); alert("Saved!"); return; }
+  if(a==="add-truck") { const inp=document.getElementById("new-truck-inp"); if(inp&&inp.value.trim()){S.trucks.push(inp.value.trim());save();render();} return; }
+  if(a==="del-truck") { if(confirm("Remove this truck?")){S.trucks.splice(parseInt(v),1);save();render();} return; }
+  if(a==="add-tech") { const inp=document.getElementById("new-tech-inp"); if(inp&&inp.value.trim()){S.techs.push(inp.value.trim());save();render();} return; }
+  if(a==="del-tech") { if(confirm("Remove?")){S.techs.splice(parseInt(v),1);save();render();} return; }
+  if(a==="toggle-cat") { S.openCat=S.openCat===v?null:v; render(); return; }
+  if(a==="add-cat") { const l=prompt("Category name:"); if(!l)return; const sc2=parseInt(prompt("Scale (3,5,10):"))||10; S.cats.push({id:uid(),label:l.trim(),scale:sc2,items:[]}); save(); render(); return; }
+  if(a==="del-cat") { if(confirm("Remove category?")){S.cats=S.cats.filter(c=>c.id!==v);save();render();} return; }
+  if(a==="add-cat-item") { const l=prompt("Item label:"); if(!l)return; const hc=confirm("Include comment field?"); const c=S.cats.find(x=>x.id===v); if(c){c.items.push({id:uid(),label:l.trim(),hc});save();render();} return; }
+  if(a==="del-cat-item") { const [ci,ii]=v.split("|"); const c=S.cats.find(x=>x.id===ci); if(c){c.items=c.items.filter(i=>i.id!==ii);save();render();} return; }
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function setPage(id){
+  document.querySelectorAll(".pg").forEach(p=>p.classList.remove("on"));
+  const pg=document.getElementById("pg-"+id);
+  if(pg) pg.classList.add("on");
+}
+
+function render(){
+  // Nav
+  const mgrTabs=[{id:"dashboard",l:"Home"},{id:"inspect",l:"Fleet"},{id:"inventory",l:"Inventory"},{id:"orders",l:"Orders"},{id:"checkout",l:"Checkout"},{id:"settings",l:"Settings"}];
+  const techTabs=[{id:"checkout",l:"Request"}];
+  const tabs=S.role==="manager"?mgrTabs:techTabs;
+  const pending=S.orders.filter(o=>o.status==="Pending").length;
+  document.getElementById("nav").innerHTML=tabs.map(t=>`<button class="nb${S.tab===t.id?" on":""}" data-a="tab" data-v="${t.id}">${t.l}${t.id==="orders"&&pending>0?'<span class="bdg">'+pending+'</span>':""}</button>`).join("");
+  setPage(S.tab);
+  if(S.tab==="dashboard") renderDash();
+  else if(S.tab==="inspect") renderInspect();
+  else if(S.tab==="inventory") renderInv();
+  else if(S.tab==="orders") renderOrders();
+  else if(S.tab==="checkout") renderCheckout();
+  else if(S.tab==="settings") renderSettings();
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+function renderDash(){
+  const {inspections,products,orders}=S;
+  const mo=inspections.filter(i=>new Date(i.date).getMonth()===new Date().getMonth()).length;
+  const avg=inspections.length?Math.round(inspections.reduce((a,b)=>a+b.pct,0)/inspections.length):0;
+  const low=products.filter(p=>p.qty<=p.lowAt);
+  const pend=orders.filter(o=>o.status==="Pending").length;
+  const tot=products.reduce((a,p)=>a+Math.max(0,p.qty),0);
+  document.getElementById("pg-dashboard").innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div><h1 style="font-size:20px;font-weight:700;">Admin Hub</h1><p style="color:#475569;font-size:13px;margin-top:2px;">Willamette Valley Branch</p></div>
+    </div>
+    ${pend>0?`<div class="al-a" data-a="tab" data-v="orders"><span style="color:#f59e0b;font-size:18px;">!</span><div><div style="color:#f59e0b;font-weight:600;font-size:14px;">${pend} pending request${pend>1?"s":""}</div><div style="color:#78350f;font-size:12px;">Tap to review</div></div></div>`:""}
+    ${low.length>0?`<div class="al-o" data-a="tab" data-v="inventory"><span style="color:#fb923c;font-size:18px;">!</span><div><div style="color:#fb923c;font-weight:600;">Low Stock Alert</div><div style="color:#9a3412;font-size:12px;">${low.map(p=>esc(p.name)).join(", ")}</div></div></div>`:""}
+    <div class="g2" style="margin-bottom:20px;">
+      <div class="sc"><div style="font-size:24px;font-weight:700;color:#3b82f6;">${mo}</div><div style="font-size:11px;color:#475569;margin-top:4px;">Inspections This Month</div></div>
+      <div class="sc"><div style="font-size:24px;font-weight:700;color:${avg?sc(avg):"#475569"};">${inspections.length?avg+"%":"N/A"}</div><div style="font-size:11px;color:#475569;margin-top:4px;">Avg Score</div></div>
+      <div class="sc"><div style="font-size:24px;font-weight:700;color:#8b5cf6;">${tot.toLocaleString()}</div><div style="font-size:11px;color:#475569;margin-top:4px;">Total Inventory</div></div>
+      <div class="sc"><div style="font-size:24px;font-weight:700;color:${low.length>0?"#f97316":"#22c55e"};">${low.length}</div><div style="font-size:11px;color:#475569;margin-top:4px;">Low Stock Items</div></div>
+      <div class="sc"><div style="font-size:24px;font-weight:700;color:${pend>0?"#f59e0b":"#22c55e"};">${pend}</div><div style="font-size:11px;color:#475569;margin-top:4px;">Pending Requests</div></div>
+    </div>
+    <div class="g2" style="margin-bottom:20px;">
+      <button class="btn bp" style="padding:16px;border-radius:12px;" data-a="tab" data-v="inspect">Fleet Inspect</button>
+      <button class="btn bs" style="padding:16px;border-radius:12px;" data-a="tab" data-v="inventory">Inventory</button>
+    </div>
+    ${inspections.length>0?`<div style="font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-weight:600;">Recent Inspections</div>${inspections.slice(0,3).map(r=>`<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;" data-a="insp-detail" data-v="${r.id}">${ring(r.pct,48)}<div style="flex:1"><div style="font-weight:600;font-size:14px;">${esc(r.truck)}</div><div style="color:#475569;font-size:12px;">${fd(r.date)}${r.inspector?" - "+esc(r.inspector):""}</div></div><span class="sbdg" style="background:${sc(r.pct)}22;color:${sc(r.pct)}">${sl(r.pct)}</span></div>`).join("")}`:""}`;
+}
+
+// ─── Inspections ──────────────────────────────────────────────────────────────
+function renderInspect(){
+  const pg=document.getElementById("pg-inspect");
+  if(S.inspView==="home") pg.innerHTML=inspHome();
+  else if(S.inspView==="list") pg.innerHTML=inspList();
+  else if(S.inspView==="form") pg.innerHTML=inspForm();
+  else if(S.inspView==="detail") pg.innerHTML=inspDetail();
+}
+
+function inspHome(){
+  const mo=S.inspections.filter(i=>new Date(i.date).getMonth()===new Date().getMonth()).length;
+  return `<h2 style="font-size:20px;font-weight:700;margin-bottom:16px;">Fleet Inspections</h2>
+    <div style="background:linear-gradient(135deg,#0d1f3c,#162235);border-radius:14px;padding:24px;margin-bottom:20px;border:1px solid #1e3a5f;text-align:center;">
+      <div style="font-size:36px;margin-bottom:12px;">&#x1F69A;</div>
+      <h3 style="font-size:17px;font-weight:700;margin-bottom:6px;">Monthly Vehicle Inspection</h3>
+      <p style="color:#475569;font-size:13px;margin-bottom:20px;">Score each truck across 7 categories</p>
+      <button class="btn bp" style="font-size:15px;padding:13px 28px;" data-a="insp-start">Start New Inspection</button>
+    </div>
+    <div class="g3" style="margin-bottom:16px;">
+      <div class="sc" style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#3b82f6;">${S.inspections.length}</div><div style="font-size:11px;color:#475569;margin-top:3px;">Total</div></div>
+      <div class="sc" style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#3b82f6;">${mo}</div><div style="font-size:11px;color:#475569;margin-top:3px;">This Month</div></div>
+      <div class="sc" style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#3b82f6;">${S.trucks.length}</div><div style="font-size:11px;color:#475569;margin-top:3px;">Trucks</div></div>
+    </div>
+    ${S.inspections.length>0?`<button class="btn bg" style="width:100%;" data-a="insp-view" data-v="list">View All Records</button>`:""}`;
+}
+
+function inspList(){
+  const filter=S.inspListFilter||"all";
+  const trucks=[...new Set(S.inspections.map(i=>i.truck))];
+  const filtered=filter==="all"?S.inspections:S.inspections.filter(i=>i.truck===filter);
+  return `<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+    <button class="btn bg" data-a="insp-view" data-v="home">Back</button>
+    <h2 style="font-size:18px;font-weight:700;">Inspection Records</h2>
+  </div>
+  <select class="inp" style="margin-bottom:14px;" id="insp-filter">
+    <option value="all">All Trucks</option>${trucks.map(t=>`<option value="${esc(t)}"${filter===t?" selected":""}>${esc(t)}</option>`).join("")}
+  </select>
+  ${filtered.length===0?`<div style="text-align:center;color:#475569;padding:40px;">No records found.</div>`:
+    filtered.map(r=>`<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;" data-a="insp-detail" data-v="${r.id}">${ring(r.pct,52)}<div style="flex:1"><div style="font-weight:600;font-size:15px;">${esc(r.truck)}</div><div style="color:#475569;font-size:12px;">${fd(r.date)}${r.inspector?" - "+esc(r.inspector):""}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span class="sbdg" style="background:${sc(r.pct)}22;color:${sc(r.pct)}">${sl(r.pct)}</span><button class="btn bd" style="font-size:11px;padding:3px 8px;" data-a="insp-del" data-v="${r.id}">Delete</button></div></div>`).join("")}`;
+}
+
+function inspForm(){
+  const {cats,inspData}=S;
+  const steps=["Info",...cats.map(c=>c.label),"Photos & Submit"];
+  const step=S.inspStep;
+  const isInfo=step===0,isPhotos=step===steps.length-1;
+  const cat=!isInfo&&!isPhotos?cats[step-1]:null;
+  let pct=calcPct();
+  const prog=`<div class="pb"><div class="pf" style="width:${(step/(steps.length-1))*100}%"></div></div><div style="display:flex;justify-content:space-between;margin-bottom:16px;"><span style="font-size:12px;color:#475569;">Step ${step+1} of ${steps.length}</span><span style="font-size:12px;color:#475569;">${esc(steps[step])}</span></div>`;
+  let body="";
+  if(isInfo){
+    body=`<h2 style="font-size:17px;font-weight:700;margin-bottom:18px;">Inspection Details</h2>
+      <div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Vehicle</label>
+        <select class="inp" id="insp-truck">${S.trucks.map(t=>`<option value="${esc(t)}"${inspData.truck===t?" selected":""}>${esc(t)}</option>`).join("")}</select></div>
+      <div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Current Mileage</label>
+        <input type="number" class="inp" id="insp-mileage" value="${esc(inspData.mileage)}" placeholder="e.g. 87432"></div>
+      <div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Inspector Name</label>
+        <input type="text" class="inp" id="insp-inspector" value="${esc(inspData.inspector)}" placeholder="Your name"></div>
+      <div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Notes</label>
+        <textarea class="inp" rows="3" id="insp-notes" placeholder="Overall observations...">${esc(inspData.notes)}</textarea></div>`;
+  } else if(cat){
+    const items=cat.items.map(item=>{
+      const key=cat.id+":"+item.id;
+      const val=inspData.scores[key];
+      const btns=Array.from({length:cat.scale},(_,i)=>i+1).map(n=>`<button class="skb${val===n?" on":""}" style="${val===n?"background:"+sc((n/cat.scale)*100)+";border-color:"+sc((n/cat.scale)*100)+";":""}" data-a="score" data-v="${cat.id}|${item.id}|${n}">${n}</button>`).join("");
+      const comment=item.hc?`<input type="text" class="inp" style="margin-top:8px;font-size:13px;padding:7px 10px;" placeholder="Comment (optional)" value="${esc(inspData.comments[key]||"")}" data-commentkey="${key}">`:"";
+      return `<div style="background:#0a1628;border-radius:9px;padding:14px;border:1px solid #1e3a5f;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-weight:500;font-size:14px;">${esc(item.label)}</span>
+          <span style="font-family:monospace;font-size:15px;font-weight:700;color:${val===undefined?"#334155":sc((val/cat.scale)*100)}">${val===undefined?"--":val+"/"+cat.scale}</span>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">${btns}</div>${comment}</div>`;
+    }).join("");
+    body=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;"><h2 style="font-size:17px;font-weight:700;">${esc(cat.label)}</h2><span style="background:#0d1f3c;color:#93c5fd;padding:3px 10px;border-radius:6px;font-size:12px;">Out of ${cat.scale}</span></div><div style="display:flex;flex-direction:column;gap:14px;">${items}</div>`;
+  } else {
+    const photos=(inspData.photos||[]).map((ph,i)=>`<div style="position:relative;"><img src="${ph.data}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;"><button style="position:absolute;top:3px;right:3px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;" data-a="del-photo" data-v="${i}">x</button></div>`).join("");
+    body=`<h2 style="font-size:17px;font-weight:700;margin-bottom:6px;">Photos & Submit</h2>
+      <p style="color:#475569;font-size:13px;margin-bottom:16px;">Review your score and save.</p>
+      <div style="background:#0a1628;border-radius:10px;padding:16px;margin-bottom:16px;text-align:center;border:2px solid ${sc(pct)}30;">${ring(pct,90)}<div style="margin-top:6px;font-size:18px;font-weight:700;color:${sc(pct)}">${sl(pct)}</div><div style="color:#475569;font-size:12px;margin-top:2px;">${esc(inspData.truck)}</div></div>
+      <input type="file" id="photo-file" accept="image/*" multiple style="display:none">
+      <button class="btn bg" style="width:100%;padding:12px;margin-bottom:12px;" data-a="add-photo">Add Photos</button>
+      <div class="g3">${photos}</div>`;
+  }
+  const back=`<button class="btn bg" style="flex:1;" data-a="insp-back">Back</button>`;
+  const fwd=isPhotos?`<button class="btn bs" style="flex:2;" data-a="insp-save">Save Inspection</button>`:`<button class="btn bp" style="flex:2;" data-a="insp-next">Next</button>`;
+  return `${prog}<div class="card" style="margin-bottom:14px;">${body}</div><div style="display:flex;gap:10px;">${back}${fwd}</div>`;
+}
+
+function inspDetail(){
+  const r=S.detailInsp;
+  if(!r) return "";
+  const cats=S.cats.map(cat=>{
+    const scored=cat.items.filter(i=>r.scores[cat.id+":"+i.id]!==undefined);
+    if(!scored.length) return "";
+    const e=scored.reduce((a,i)=>a+(r.scores[cat.id+":"+i.id]||0),0);
+    const cp=Math.round((e/(cat.items.length*cat.scale))*100);
+    return `<div class="card" style="margin-bottom:10px;padding:0;overflow:hidden;"><div style="padding:10px 14px;background:#0a1628;display:flex;justify-content:space-between;"><span style="font-weight:600;font-size:14px;">${esc(cat.label)}</span><span style="font-family:monospace;font-size:13px;font-weight:700;color:${sc(cp)}">${cp}%</span></div><div style="padding:14px;">${cat.items.map(item=>{const s=r.scores[cat.id+":"+item.id];const cm=r.comments?.[cat.id+":"+item.id];return `<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;"><div><div style="font-size:13px;">${esc(item.label)}</div>${cm?`<div style="font-size:11px;color:#64748b;">"${esc(cm)}"</div>`:""}</div><span style="font-family:monospace;font-size:13px;font-weight:700;white-space:nowrap;color:${s===undefined?"#334155":sc((s/cat.scale)*100)}">${s===undefined?"--":s+"/"+cat.scale}</span></div>`;}).join("")}</div></div>`;
+  }).join("");
+  const photos=r.photos?.length?`<div class="card" style="margin-top:8px;"><div style="font-size:11px;color:#475569;text-transform:uppercase;margin-bottom:10px;">Photos (${r.photos.length})</div><div class="g3">${r.photos.map(ph=>`<img src="${ph.data}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;">`).join("")}</div></div>`:"";
+  return `<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;"><button class="btn bg" data-a="insp-view" data-v="list">Back</button><button class="btn bd" data-a="insp-del" data-v="${r.id}">Delete</button></div>
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px;">${ring(r.pct,72)}<div><h2 style="font-size:20px;font-weight:700;">${esc(r.truck)}</h2><div style="color:#475569;font-size:13px;margin-top:3px;">${fd(r.date)}${r.inspector?" - "+esc(r.inspector):""}</div>${r.mileage?`<div style="color:#64748b;font-size:12px;margin-top:2px;">${Number(r.mileage).toLocaleString()} miles</div>`:""}</div></div>
+    ${r.notes?`<div class="card" style="margin-bottom:12px;"><div style="font-size:11px;color:#475569;text-transform:uppercase;margin-bottom:5px;">Notes</div><p style="font-size:13px;color:#cbd5e1;">${esc(r.notes)}</p></div>`:""}
+    ${cats}${photos}`;
+}
+
+function calcPct(){
+  let e=0,p=0;
+  S.cats.forEach(c=>c.items.forEach(item=>{p+=c.scale;const s=S.inspData.scores[c.id+":"+item.id];if(s!==undefined)e+=s;}));
+  return p>0?Math.round((e/p)*100):0;
+}
+
+async function saveInsp(){
+  const pct=calcPct();
+  const rec={id:uid(),date:new Date().toISOString(),...S.inspData,pct};
+  S.inspections.unshift(rec);
+  S.inspView="home"; save(); render();
+  const catH=S.cats.flatMap(c=>c.items.map(i=>c.label+": "+i.label+" (/"+c.scale+")"));
+  const headers=["Date","Truck","Inspector","Mileage","Overall %",...catH];
+  const catS=S.cats.flatMap(c=>c.items.map(item=>{const s=S.inspData.scores[c.id+":"+item.id];return s!==undefined?s:"";}));
+  const row=[new Date(rec.date).toLocaleDateString("en-US"),rec.truck,rec.inspector||"",rec.mileage||"",pct,...catS];
+  try { await gs("logInspectionServer",{headers,row}); } catch(e){}
+}
+
+// ─── Inventory ────────────────────────────────────────────────────────────────
+function renderInv(){
+  const pg=document.getElementById("pg-inventory");
+  if(S.invView==="checkouts"){pg.innerHTML=checkoutHistory();return;}
+  const {products}=S;
+  const low=products.filter(p=>p.qty<=p.lowAt);
+  const rows=products.map(p=>{
+    const isLow=p.qty<=p.lowAt;
+    const isR=S._restockId===p.id, isA=S._adjId===p.id;
+    let panel="";
+    if(isR) panel=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;"><div style="display:flex;gap:6px;margin-bottom:6px;"><input type="number" class="inp" id="rst-${p.id}" style="flex:1;padding:7px 10px;font-size:13px;" placeholder="Add ${esc(p.unit)}"><button class="btn bs" style="padding:7px 14px;font-size:13px;" data-a="do-restock" data-v="${p.id}">Add</button><button class="btn bg" style="padding:7px 10px;font-size:13px;" data-a="close-panel">Cancel</button></div><input type="text" class="inp" id="rst-reason-${p.id}" style="font-size:12px;padding:6px 10px;" placeholder="Reason (e.g. Weekly delivery)"></div>`;
+    if(isA) panel=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;"><div style="display:flex;gap:6px;margin-bottom:6px;"><input type="number" class="inp" id="adj-${p.id}" value="${p.qty}" style="flex:1;padding:7px 10px;font-size:13px;"><button class="btn bp" style="padding:7px 14px;font-size:13px;" data-a="do-adj" data-v="${p.id}">Set</button><button class="btn bg" style="padding:7px 10px;font-size:13px;" data-a="close-panel">Cancel</button></div><input type="text" class="inp" id="adj-reason-${p.id}" style="font-size:12px;padding:6px 10px;" placeholder="Reason (e.g. Audit correction)"></div>`;
+    return `<div class="card" style="margin-bottom:8px;${isLow?"border-color:#c2410c30":""}">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;"><div style="display:flex;align-items:center;gap:6px;"><span style="font-weight:600;font-size:14px;">${esc(p.name)}</span>${isLow?`<span class="tag-low">LOW</span>`:""}</div><div style="color:#475569;font-size:12px;margin-top:2px;">Low at: ${p.lowAt} ${esc(p.unit)}</div></div>
+        <div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:${isLow?"#fb923c":"#e2e8f0"};">${p.qty}</div><div style="font-size:11px;color:#475569;">${esc(p.unit)}</div></div>
+        <div style="display:flex;gap:5px;"><button class="btn bg" style="padding:5px 9px;font-size:12px;" data-a="open-restock" data-v="${p.id}">+Stock</button><button class="btn bg" style="padding:5px 9px;font-size:12px;" data-a="open-adj" data-v="${p.id}">Edit</button></div>
+      </div>${panel}</div>`;
+  }).join("");
+  pg.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><h2 style="font-size:20px;font-weight:700;">Inventory</h2><button class="btn bg" style="font-size:11px;padding:5px 10px;" data-a="sync">Sync Sheet</button></div>
+    <p style="color:#475569;font-size:13px;margin-bottom:16px;">From Active Inventory sheet</p>
+    ${low.length>0?`<div style="background:#431407;border:1px solid #c2410c;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:8px;align-items:center;"><span style="color:#fb923c;">!</span><span style="color:#fb923c;font-size:13px;font-weight:500;">${low.length} item${low.length>1?"s":""} low on stock</span></div>`:""}
+    <div style="display:flex;gap:8px;margin-bottom:14px;"><button class="btn bg" style="font-size:12px;" data-a="inv-view" data-v="checkouts">Checkout History</button></div>
+    ${rows}`;
+}
+
+function checkoutHistory(){
+  const {checkouts}=S;
+  return `<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;"><button class="btn bg" data-a="inv-view" data-v="list">Back</button><h2 style="font-size:18px;font-weight:700;">Checkout History</h2></div>
+    ${checkouts.length===0?`<div style="text-align:center;color:#475569;padding:40px;">No checkouts yet.</div>`:checkouts.slice(0,50).map(c=>`<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="flex:1;"><div style="font-weight:600;font-size:13px;">${esc(c.product)}</div><div style="color:#475569;font-size:12px;">${esc(c.tech)} - ${fd(c.date)}</div></div><div style="text-align:right;"><div style="font-weight:700;color:#ef4444;font-size:14px;">-${c.qty}</div><div style="color:#475569;font-size:11px;">${esc(c.unit)}</div></div></div>`).join("")}`;
+}
+
+async function doRestock(id){
+  const amt=parseInt(document.getElementById("rst-"+id)?.value);
+  if(!amt||amt<=0){alert("Enter a valid amount.");return;}
+  const reason=document.getElementById("rst-reason-"+id)?.value||"Restock received";
+  const p=S.products.find(x=>x.id===id); if(!p) return;
+  const old=p.qty; p.qty+=amt; S._restockId=null; save(); render();
+  try { await gs("updateQtyServer",{row:p.row,qty:p.qty}); await gs("logAdjustmentServer",{product:p.name,unit:p.unit,oldQty:old,newQty:p.qty,manager:S.managerName,reason}); } catch(e){}
+}
+
+async function doAdj(id){
+  const val=parseInt(document.getElementById("adj-"+id)?.value);
+  if(isNaN(val)){alert("Enter a valid quantity.");return;}
+  const reason=document.getElementById("adj-reason-"+id)?.value||"Manual adjustment";
+  const p=S.products.find(x=>x.id===id); if(!p) return;
+  const old=p.qty; p.qty=Math.max(0,val); S._adjId=null; save(); render();
+  try { await gs("updateQtyServer",{row:p.row,qty:p.qty}); await gs("logAdjustmentServer",{product:p.name,unit:p.unit,oldQty:old,newQty:p.qty,manager:S.managerName,reason}); } catch(e){}
+}
+
+// ─── Checkout / Request ───────────────────────────────────────────────────────
+function renderCheckout(){
+  const pg=document.getElementById("pg-checkout");
+  if(S.checkDone){pg.innerHTML=checkDone();return;}
+  if(!S.checkItems||!S.checkItems.length) S.checkItems=[{id:uid(),productId:"",qty:"",notes:""}];
+  const isM=S.role==="manager";
+  const rows=S.checkItems.map((item,i)=>{
+    const prod=S.products.find(p=>p.id===item.productId);
+    const opts=S.products.map(p=>{const oos=!isM&&p.qty<=0;return `<option value="${p.id}"${item.productId===p.id?" selected":""}${oos?" disabled":""}>${esc(p.name)} - ${p.qty} ${esc(p.unit)}${p.qty<=0?" (OUT)":p.qty<=p.lowAt?" (LOW)":""}</option>`;}).join("");
+    return `<div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <select class="inp" style="flex:2;" data-field="productId" data-idx="${i}"><option value="">Select product...</option>${opts}</select>
+        <input type="number" class="inp" style="flex:1;" value="${esc(item.qty)}" placeholder="Qty" data-field="qty" data-idx="${i}">
+        ${S.checkItems.length>1?`<button style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:18px;padding:0 4px;" data-a="del-check-item" data-v="${i}">x</button>`:""}
+      </div>
+      <input type="text" class="inp" style="font-size:13px;padding:7px 10px;" placeholder="Notes (optional)" value="${esc(item.notes)}" data-field="notes" data-idx="${i}">
+      ${prod&&parseInt(item.qty)>prod.qty?`<div style="color:#f97316;font-size:12px;margin-top:6px;">Only ${prod.qty} ${esc(prod.unit)} available</div>`:""}
+    </div>`;
+  }).join("");
+  pg.innerHTML=`<h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">${isM?"Product Checkout":"Product Request"}</h2>
+    <p style="color:#475569;font-size:13px;margin-bottom:18px;">${isM?"Check out products from inventory":"Request products - management will review"}</p>
+    <div style="margin-bottom:16px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Technician</label>
+      <select class="inp" id="check-tech"><option value="">Select your name...</option>${S.techs.map(t=>`<option value="${esc(t)}"${S.checkTech===t?" selected":""}>${esc(t)}</option>`).join("")}</select></div>
+    <label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:10px;">Products</label>
+    ${rows}
+    <button class="btn bg" style="width:100%;margin-bottom:14px;font-size:13px;" data-a="add-check-item">+ Add Another Product</button>
+    <button class="btn bs" style="width:100%;padding:14px;font-size:15px;" data-a="submit-checkout">${isM?"Process Checkout":"Submit Request"}</button>
+    ${!isM?`<p style="color:#475569;font-size:12px;text-align:center;margin-top:8px;">Your request will be sent to management for approval.</p>`:""}`;
+}
+
+function checkDone(){
+  const isM=S.role==="manager";
+  return `<div style="text-align:center;padding:40px 20px;">
+    <div style="width:72px;height:72px;background:#14532d;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:36px;">&#x2713;</div>
+    <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">${isM?"Checkout Complete":"Request Submitted"}</h2>
+    <p style="color:#475569;font-size:14px;margin-bottom:28px;">${isM?"Products logged and inventory updated.":"Your request has been sent to management."}</p>
+    <button class="btn bp" data-a="checkout-reset">New ${isM?"Checkout":"Request"}</button></div>`;
+}
+
+async function submitCheckout(){
+  const techSel=document.getElementById("check-tech");
+  const tech=techSel?techSel.value:S.checkTech;
+  if(!tech){alert("Please select your name.");return;}
+  S.checkTech=tech;
+  const valid=S.checkItems.filter(i=>i.productId&&parseInt(i.qty)>0);
+  if(!valid.length){alert("Please add at least one product with a quantity.");return;}
+  const isM=S.role==="manager";
+  for(const item of valid){
+    const prod=S.products.find(p=>p.id===item.productId); if(!prod) continue;
+    const te=S.techEmails.find(t=>t.name===tech);
+    if(isM){
+      const newQty=Math.max(0,prod.qty-parseInt(item.qty));
+      prod.qty=newQty;
+      const rec={id:uid(),date:new Date().toISOString(),tech,techEmail:te?.email||"",product:prod.name,qty:parseInt(item.qty),unit:prod.unit,notes:item.notes||""};
+      S.checkouts.unshift(rec);
+      try { await gs("updateQtyServer",{row:prod.row,qty:newQty}); await gs("logCheckoutServer",rec); } catch(e){}
+      const low=S.products.filter(p=>p.qty<=p.lowAt);
+      if(low.length) sendLowEmail(low);
+    } else {
+      const order={id:"ORD-"+Date.now(),date:new Date().toISOString(),tech,techEmail:te?.email||"",product:prod.name,productId:prod.id,requestedQty:parseInt(item.qty),unit:prod.unit,notes:item.notes||"",status:"Pending"};
+      S.orders.unshift(order);
+      try { await gs("addPendingOrderServer",order); await gs("sendEmailServer",{to:MGMT.join(","),subject:"[Fox Pest Control] Product Request - "+order.tech+" - "+order.product,body:"Product Request\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nQty: "+order.requestedQty+" "+order.unit+(order.notes?"\nNotes: "+order.notes:"")+"\n\nLog in to Admin Hub to approve or deny.\nOrder ID: "+order.id}); } catch(e){}
+    }
+  }
+  save(); S.checkDone=true; render();
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+function renderOrders(){
+  const {orders,products}=S;
+  const filter=S.ordersFilter;
+  const filtered=filter==="All"?orders:orders.filter(o=>o.status===filter);
+  const pend=orders.filter(o=>o.status==="Pending").length;
+  function osc(st){return st==="Pending"?"#f59e0b":st==="Approved"?"#22c55e":"#ef4444";}
+  const fbtns=["Pending","Approved","Denied","All"].map(f=>`<button class="fb${filter===f?" on":""}" data-a="order-filter" data-v="${f}">${f}${f==="Pending"&&pend>0?" ("+pend+")":""}</button>`).join("");
+  const cards=filtered.map(order=>{
+    const prod=products.find(p=>p.id===order.productId);
+    const isAct=S.editOrderId===order.id;
+    let panel="";
+    if(order.status==="Pending"&&!isAct) panel=`<div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid #1e3a5f;"><button class="btn bs" style="flex:1;padding:8px;font-size:13px;" data-a="order-action" data-v="${order.id}|approve">Approve</button><button class="btn bd" style="flex:1;padding:8px;font-size:13px;" data-a="order-action" data-v="${order.id}|deny">Deny</button></div>`;
+    else if(isAct&&S.editOrderType==="approve") panel=`<div style="padding-top:10px;border-top:1px solid #1e3a5f;"><div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Adjust qty if needed:</div><div style="display:flex;gap:8px;margin-bottom:8px;"><input type="number" class="inp" id="app-qty-${order.id}" value="${order.requestedQty}" style="flex:1;padding:7px;font-size:14px;font-weight:700;"><span style="display:flex;align-items:center;color:#64748b;font-size:13px;">${esc(order.unit)}</span></div>${prod&&order.requestedQty>prod.qty?`<div style="color:#f97316;font-size:12px;margin-bottom:8px;">Only ${prod.qty} in stock</div>`:""}<div style="display:flex;gap:8px;"><button class="btn bs" style="flex:2;padding:9px;font-size:13px;" data-a="approve-order" data-v="${order.id}">Confirm Approval</button><button class="btn bg" style="flex:1;padding:9px;font-size:13px;" data-a="order-action-cancel">Cancel</button></div></div>`;
+    else if(isAct&&S.editOrderType==="deny") panel=`<div style="padding-top:10px;border-top:1px solid #1e3a5f;"><input type="text" class="inp" id="deny-rsn-${order.id}" style="margin-bottom:8px;padding:7px 10px;font-size:13px;" placeholder="Reason (optional)"><div style="display:flex;gap:8px;"><button class="btn bd" style="flex:2;padding:9px;font-size:13px;" data-a="deny-order" data-v="${order.id}">Confirm Denial</button><button class="btn bg" style="flex:1;padding:9px;font-size:13px;" data-a="order-action-cancel">Cancel</button></div></div>`;
+    return `<div class="card" style="margin-bottom:10px;${order.status==="Pending"?"border-color:#92400e30":""}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
+        <div><div style="font-weight:700;font-size:15px;">${esc(order.product)}</div><div style="color:#64748b;font-size:12px;margin-top:2px;">${esc(order.tech)} - ${fd(order.date)}</div><div style="color:#94a3b8;font-size:12px;margin-top:1px;">Requested: ${order.requestedQty} ${esc(order.unit)}${prod?` <span style="color:#475569;">- ${prod.qty} in stock</span>`:""}</div>${order.notes?`<div style="color:#64748b;font-size:12px;margin-top:3px;font-style:italic;">"${esc(order.notes)}"</div>`:""}${order.status==="Approved"?`<div style="color:#22c55e;font-size:12px;margin-top:3px;">Approved: ${order.approvedQty} by ${esc(order.approvedBy)}</div>`:""}${order.status==="Denied"?`<div style="color:#ef4444;font-size:12px;margin-top:3px;">Denied by ${esc(order.approvedBy)}${order.denyReason?" - "+esc(order.denyReason):""}</div>`:""}</div>
+        <span class="sbdg" style="background:${osc(order.status)}22;color:${osc(order.status)};white-space:nowrap;">${order.status}</span>
+      </div>${panel}</div>`;
+  }).join("");
+  document.getElementById("pg-orders").innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><div><h2 style="font-size:20px;font-weight:700;">Product Orders</h2>${pend>0?`<p style="color:#f59e0b;font-size:13px;margin-top:2px;">${pend} pending approval</p>`:""}</div></div><div style="display:flex;gap:6px;margin-bottom:16px;">${fbtns}</div>${filtered.length===0?`<div style="text-align:center;color:#475569;padding:40px;">No ${filter.toLowerCase()} orders.</div>`:cards}`;
+}
+
+async function confirmApprove(orderId){
+  const qty=parseInt(document.getElementById("app-qty-"+orderId)?.value);
+  if(!qty||qty<=0){alert("Enter a valid quantity.");return;}
+  const order=S.orders.find(o=>o.id===orderId); if(!order) return;
+  const prod=S.products.find(p=>p.id===order.productId);
+  if(prod){const nq=Math.max(0,prod.qty-qty);prod.qty=nq;try{await gs("updateQtyServer",{row:prod.row,qty:nq});}catch(e){}}
+  order.status="Approved"; order.approvedQty=qty; order.approvedBy=S.managerName;
+  S.editOrderId=null; save(); render();
+  const te=[order.techEmail,...MGMT].filter(Boolean).join(",");
+  try { await gs("updateOrderStatusServer",{orderId,status:"Approved",approvedQty:qty,approvedBy:S.managerName}); await gs("addOrderHistoryServer",{...order,approvedQty:qty,approvedBy:S.managerName}); await gs("sendEmailServer",{to:te,subject:"[Fox Pest Control] Order Approved - "+order.product,body:"Your product request has been APPROVED\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nApproved Qty: "+qty+" "+order.unit+"\nApproved By: "+S.managerName+"\n\nItems will be ready for pickup.\n\nAutomated notification from Fox Admin Hub."}); } catch(e){}
+  const low=S.products.filter(p=>p.qty<=p.lowAt);
+  if(low.length) sendLowEmail(low);
+}
+
+async function confirmDeny(orderId){
+  const reason=document.getElementById("deny-rsn-"+orderId)?.value||"";
+  const order=S.orders.find(o=>o.id===orderId); if(!order) return;
+  order.status="Denied"; order.approvedBy=S.managerName; order.denyReason=reason;
+  S.editOrderId=null; save(); render();
+  const te=[order.techEmail,...MGMT].filter(Boolean).join(",");
+  try { await gs("updateOrderStatusServer",{orderId,status:"Denied",approvedQty:0,approvedBy:S.managerName}); await gs("sendEmailServer",{to:te,subject:"[Fox Pest Control] Order Denied - "+order.product,body:"Your product request has been DENIED\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nDenied By: "+S.managerName+(reason?"\nReason: "+reason:"")+"\n\nContact your manager with questions.\n\nAutomated notification from Fox Admin Hub."}); } catch(e){}
+}
+
+async function sendLowEmail(low){
+  const list=low.map(p=>"  - "+p.name+": "+p.qty+" "+p.unit+" (min: "+p.lowAt+")").join("\n");
+  try { await gs("sendEmailServer",{to:MGMT.join(","),subject:"[Fox Pest Control] Low Stock Alert - "+low.length+" item"+(low.length>1?"s":"")+" need restocking",body:"Low Stock Alert - Willamette Valley\n\n"+list+"\n\nPlease restock soon.\n\nAutomated notification."}); } catch(e){}
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+function renderSettings(){
+  const tab=S.settingsTab;
+  const tabs=[{id:"access",l:"Access"},{id:"trucks",l:"Trucks"},{id:"techs",l:"Technicians"},{id:"cats",l:"Inspection"},{id:"prods",l:"Products"},{id:"me",l:"My Name"}];
+  const tbns=tabs.map(t=>`<button class="stb${tab===t.id?" on":""}" data-a="settings-tab" data-v="${t.id}">${t.l}</button>`).join(" ");
+  let body="";
+  if(tab==="access") body=`<p style="color:#475569;font-size:13px;margin-bottom:16px;">Set PIN codes for manager and technician access.</p><div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Manager PIN</label><input type="password" class="inp" id="pin-mgr-inp" value="${S.pins.manager}" maxlength="8" placeholder="4-8 digits"></div><div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Technician PIN</label><input type="password" class="inp" id="pin-tech-inp" value="${S.pins.tech}" maxlength="8" placeholder="4-8 digits"></div><button class="btn bp" data-a="save-pins">Save PINs</button>`;
+  else if(tab==="trucks") body=`<div style="display:flex;gap:8px;margin-bottom:14px;"><input type="text" class="inp" id="new-truck-inp" placeholder="e.g. Truck 10" style="flex:1;"><button class="btn bp" style="padding:10px 14px;font-size:13px;" data-a="add-truck">Add</button></div>${S.trucks.map((t,i)=>`<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:10px 14px;"><span style="flex:1;font-size:14px;font-weight:500;">${esc(t)}</span><button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-truck" data-v="${i}">X</button></div>`).join("")}`;
+  else if(tab==="techs") body=`<div style="display:flex;gap:8px;margin-bottom:14px;"><input type="text" class="inp" id="new-tech-inp" placeholder="Full name" style="flex:1;"><button class="btn bp" style="padding:10px 14px;font-size:13px;" data-a="add-tech">Add</button></div>${S.techs.map((t,i)=>`<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:10px 14px;"><span style="flex:1;font-size:14px;font-weight:500;">${esc(t)}</span><button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-tech" data-v="${i}">X</button></div>`).join("")}`;
+  else if(tab==="cats") body=renderCatSettings();
+  else if(tab==="prods") body=`<p style="color:#475569;font-size:13px;margin-bottom:14px;">Edit thresholds and units.</p>${S.products.map(p=>`<div class="card" style="margin-bottom:8px;"><div style="font-weight:600;font-size:14px;margin-bottom:8px;">${esc(p.name)}</div><div class="g3"><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Unit</div><input class="inp" style="padding:6px 8px;font-size:13px;" value="${esc(p.unit)}" data-prodid="${p.id}" data-prodfield="unit"></div><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Qty</div><input type="number" class="inp" style="padding:6px 8px;font-size:13px;" value="${p.qty}" data-prodid="${p.id}" data-prodfield="qty"></div><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Low At</div><input type="number" class="inp" style="padding:6px 8px;font-size:13px;" value="${p.lowAt}" data-prodid="${p.id}" data-prodfield="lowAt"></div></div></div>`).join("")}`;
+  else if(tab==="me") body=`<p style="color:#475569;font-size:13px;margin-bottom:14px;">Your name appears in logs and approvals.</p><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Your Name</label><input type="text" class="inp" id="mgr-name-inp" value="${esc(S.managerName)}" placeholder="Enter your name"><button class="btn bp" style="margin-top:12px;" data-a="save-mgr-name">Save</button>`;
+  document.getElementById("pg-settings").innerHTML=`<h2 style="font-size:20px;font-weight:700;margin-bottom:14px;">Settings</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;">${tbns}</div>${body}`;
+}
+
+function renderCatSettings(){
+  const open=S.openCat;
+  const rows=S.cats.map(cat=>`<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden;"><div style="padding:12px 14px;background:#0a1628;display:flex;align-items:center;gap:8px;cursor:pointer;" data-a="toggle-cat" data-v="${cat.id}"><div style="flex:1;"><span style="font-weight:600;font-size:14px;">${esc(cat.label)}</span><span style="font-size:11px;color:#475569;margin-left:8px;">1-${cat.scale} - ${cat.items.length} items</span></div><span style="color:#64748b;">${open===cat.id?"&#x25B2;":"&#x25BC;"}</span></div>${open===cat.id?`<div style="padding:14px;"><div style="display:flex;gap:8px;margin-bottom:12px;"><input class="inp" style="flex:1;padding:6px 10px;font-size:13px;" value="${esc(cat.label)}" data-catid="${cat.id}" data-catfield="label"><select class="inp" style="width:80px;padding:6px 8px;font-size:13px;" data-catid="${cat.id}" data-catfield="scale">${[3,5,10].map(n=>`<option value="${n}"${cat.scale===n?" selected":""}>1-${n}</option>`).join("")}</select></div><div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">${cat.items.map(item=>`<div style="display:flex;gap:6px;align-items:center;background:#0a1628;border-radius:7px;padding:7px 10px;border:1px solid #1e3a5f;"><input class="inp" style="flex:1;padding:4px 8px;font-size:12px;background:transparent;border:none;" value="${esc(item.label)}" data-catid="${cat.id}" data-itemid="${item.id}"><button style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0 2px;" data-a="del-cat-item" data-v="${cat.id}|${item.id}">x</button></div>`).join("")}</div><div style="display:flex;gap:8px;"><button class="btn bg" style="flex:1;font-size:12px;padding:7px;" data-a="add-cat-item" data-v="${cat.id}">+ Add Item</button><button class="btn bd" style="font-size:12px;padding:7px 12px;" data-a="del-cat" data-v="${cat.id}">Remove</button></div></div>`:""}
+  </div>`).join("");
+  return `<button class="btn bp" style="width:100%;margin-bottom:14px;font-size:13px;" data-a="add-cat">+ Add Category</button>${rows}`;
+}
+
+function savePins(){
+  const m=(document.getElementById("pin-mgr-inp")?.value||"").replace(/[^0-9]/g,"");
+  const t=(document.getElementById("pin-tech-inp")?.value||"").replace(/[^0-9]/g,"");
+  if(m.length<4||t.length<4){alert("PINs must be at least 4 digits.");return;}
+  S.pins={manager:m,tech:t}; save(); alert("PINs saved!");
+}
+
+// ─── Photo upload ─────────────────────────────────────────────────────────────
+document.addEventListener("change",function(e){
+  if(e.target.id==="photo-file"){
+    Array.from(e.target.files).forEach(f=>{
+      const r=new FileReader();
+      r.onload=ev=>{S.inspData.photos=S.inspData.photos||[];S.inspData.photos.push({id:uid(),name:f.name,data:ev.target.result});render();};
+      r.readAsDataURL(f);
+    });
+  }
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+load();
+// logo via CSS
+
+// Run immediately
+var dbg = document.getElementById("debug");
+if(dbg) dbg.textContent = "Initializing...";
+
+// Safe onclick setter
+function tap(id, k){
+  var el = document.getElementById(id);
+  if(!el){ if(dbg) dbg.textContent = "Missing: "+id; return; }
+  el.onclick = function(){ pinTap(k); };
+}
+tap("pk1","1"); tap("pk2","2"); tap("pk3","3");
+tap("pk4","4"); tap("pk5","5"); tap("pk6","6");
+tap("pk7","7"); tap("pk8","8"); tap("pk9","9");
+tap("pk0","0"); tap("pkdel","del");
+
+var lo = document.getElementById("logout-btn");
+if(lo) lo.onclick = function(){ logout(); };
+
+if(dbg) dbg.textContent = "Ready - tap a number";
+
+// Global click handler
+document.body.onclick = function(e){
+  var t = e.target;
+  while(t && t !== document.body){
+    if(t.getAttribute && t.getAttribute("data-a")){
+      handleAction(t.getAttribute("data-a"), t.getAttribute("data-v")||"", t, e);
+      return;
+    }
+    t = t.parentElement;
+  }
+};
+</script>
+</body>
+</html>
