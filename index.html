@@ -489,6 +489,7 @@ function handleAction(a,v,el,e){
   if(a==="reset-tech-pin") { resetTechPin(parseInt(v)); return; }
   if(a==="ti-add-prod") { tiAddProd(); return; }
   if(a==="inv-show-add") { S._showAddProd=!S._showAddProd; renderInv(); return; }
+  if(a==="remove-prod") { removeProd(v); return; }
   if(a==="inv-cancel-add") { S._showAddProd=false; renderInv(); return; }
   if(a==="inv-add-prod") { invAddProduct(); return; }
   if(a==="ti-remove-prod") { tiRemoveProd(v); return; }
@@ -696,7 +697,7 @@ function renderInv(){
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="flex:1;"><div style="display:flex;align-items:center;gap:6px;"><span style="font-weight:600;font-size:14px;">${esc(p.name)}</span>${isLow?`<span class="tag-low">LOW</span>`:""}</div><div style="color:#475569;font-size:12px;margin-top:2px;">Low at: ${p.lowAt} ${esc(p.unit)}</div></div>
         <div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:${isLow?"#fb923c":"#e2e8f0"};">${p.qty}</div><div style="font-size:11px;color:#475569;">${esc(p.unit)}</div></div>
-        <div style="display:flex;gap:5px;"><button class="btn bg" style="padding:5px 9px;font-size:12px;" data-a="open-restock" data-v="${p.id}">+Stock</button><button class="btn bg" style="padding:5px 9px;font-size:12px;" data-a="open-adj" data-v="${p.id}">Edit</button></div>
+        <div style="display:flex;gap:5px;"><button class="btn bg" style="padding:5px 9px;font-size:12px;" data-a="open-restock" data-v="${p.id}">+Stock</button><button class="btn bg" style="padding:5px 9px;font-size:12px;" data-a="open-adj" data-v="${p.id}">Edit</button><button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="remove-prod" data-v="${p.id}">X</button></div>
       </div>${panel}</div>`;
   }).join("");
   const addPanel = S._showAddProd ?
@@ -890,6 +891,20 @@ async function sendLowEmail(low){
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
+// ─── Remove Product from Inventory ───────────────────────────────────────────
+async function removeProd(id){
+  const p = S.products.find(function(x){return x.id===id;});
+  if(!p) return;
+  if(!confirm("Remove "+p.name+" from inventory? This will also remove it from the sheet.")) return;
+  S.products = S.products.filter(function(x){return x.id!==id;});
+  S._restockId=null; S._adjId=null;
+  save(); renderInv();
+  // Remove from sheet if it has a row number
+  if(p.row){
+    try { await gs("removeProductFromSheetServer",{row:p.row}); } catch(e){ console.warn("Remove from sheet:",e); }
+  }
+}
+
 // ─── Add Product to Inventory ─────────────────────────────────────────────────
 async function invAddProduct(){
   const name = (document.getElementById("new-prod-name")||{}).value||"";
