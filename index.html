@@ -186,30 +186,48 @@ function load(){
   if(!S.products||!S.products.length) S.products=JSON.parse(JSON.stringify(SEED));
 }
 
-// ─── Apps Script Bridge via fetch ────────────────────────────────────────────
+// ─── Apps Script Bridge ──────────────────────────────────────────────────────
 const BRIDGE = "https://script.google.com/macros/s/AKfycbzX1SVGdraGV6GpjQfwZguWx1IDXQ-OkHqeU-W0C5q9pvojRFY0OgYY-cZ96bFwDUNN/exec";
 
-function gs(fn, data){
+// JSONP for GET requests (bypasses CORS)
+function jsonpGet(action) {
   return new Promise(function(res, rej){
-    var action = fn.replace("Server","");
-    if(data === null || data === undefined){
-      // GET request
-      fetch(BRIDGE + "?action=" + action)
-        .then(function(r){ return r.json(); })
-        .then(function(d){ if(d.error) rej(new Error(d.error)); else res(d); })
-        .catch(rej);
-    } else {
-      // POST request
-      fetch(BRIDGE, {
-        method: "POST",
-        headers: {"Content-Type": "text/plain"},
-        body: JSON.stringify({action: action, data: data})
-      })
-        .then(function(r){ return r.json(); })
-        .then(function(d){ if(d.error) rej(new Error(d.error)); else res(d); })
-        .catch(rej);
-    }
+    var cb = "cb_" + Math.random().toString(36).slice(2);
+    var script = document.createElement("script");
+    var timer = setTimeout(function(){
+      delete window[cb];
+      if(script.parentNode) script.parentNode.removeChild(script);
+      rej(new Error("Timeout"));
+    }, 15000);
+    window[cb] = function(data){
+      clearTimeout(timer);
+      delete window[cb];
+      if(script.parentNode) script.parentNode.removeChild(script);
+      if(data.error) rej(new Error(data.error));
+      else res(data);
+    };
+    script.src = BRIDGE + "?action=" + action + "&callback=" + cb;
+    script.onerror = function(){ clearTimeout(timer); rej(new Error("Script error")); };
+    document.head.appendChild(script);
   });
+}
+
+// POST for write requests
+function jsonPost(action, data){
+  return fetch(BRIDGE, {
+    method: "POST",
+    headers: {"Content-Type": "text/plain"},
+    body: JSON.stringify({action: action, data: data})
+  }).then(function(r){ return r.json(); });
+}
+
+function gs(fn, data){
+  var action = fn.replace("Server","");
+  if(data === null || data === undefined){
+    return jsonpGet(action);
+  } else {
+    return jsonPost(action, data);
+  }
 }
 
 async function syncFromSheet(){
