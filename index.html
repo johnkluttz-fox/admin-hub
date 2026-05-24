@@ -424,6 +424,7 @@ document.addEventListener("change",function(e){
   if(t.dataset.prodid&&t.dataset.prodfield){
     const p=S.products.find(x=>x.id===t.dataset.prodid);
     if(p) p[t.dataset.prodfield]=t.dataset.prodfield==="unit"?t.value:(parseInt(t.value)||0);
+    save();
   }
   if(t.id==="mgr-name-inp") S.managerName=t.value;
   if(t.id==="pin-mgr-inp") S._pinMgr=t.value;
@@ -774,23 +775,24 @@ async function submitCheckout(){
   if(!valid.length){alert("Please add at least one product with a quantity.");return;}
   const isM=S.role==="manager";
 
-  // For techs: check truck inventory against warnBelow thresholds
+  // For techs: check truck inventory against manager-set thresholds
   if(!isM){
     const truckInv=(S.truckInventories[tech]||{}).products||[];
     const hasEnough=valid.filter(function(item){
       const t=truckInv.find(function(t){return t.id===item.productId;});
       if(!t) return false;
-      const threshold = t.warnBelow||0;
-      return t.qty > threshold;
+      const prod=S.products.find(function(p){return p.id===item.productId;});
+      const threshold=prod?((prod.truckWarnAbove!==undefined)?prod.truckWarnAbove:0):0;
+      // Warn if threshold is set (>0) and truck qty is above threshold
+      return threshold>0 && t.qty>threshold;
     });
     if(hasEnough.length>0){
       const names=hasEnough.map(function(item){
         const p=S.products.find(function(p){return p.id===item.productId;});
         const t=truckInv.find(function(t){return t.id===item.productId;});
-        const threshold=t.warnBelow||0;
-        return (p?p.name:"Product")+": "+t.qty+" "+t.unit+" on your truck"+(threshold>0?" (warn below "+threshold+")":"");
+        return (p?p.name:"Product")+": "+t.qty+" "+t.unit+" on your truck";
       }).join("\n");
-      alert("Your truck inventory shows you already have enough of the following:\n\n"+names+"\n\nPlease update your truck inventory first, then request again if still needed.");
+      alert("Your truck inventory shows you already have enough of the following:\n\n"+names+"\n\nPlease correct your truck inventory first, then request again if still needed.");
       return;
     }
   }
@@ -938,16 +940,11 @@ function renderTruckInvTech(pg){
   }
 
   var prodRows = (inv.products||[]).map(function(p, i){
-    return "<div class='card' style='margin-bottom:8px;padding:12px 14px;'>"
-      +"<div style='display:flex;align-items:center;gap:10px;margin-bottom:8px;'>"
+    return "<div class='card' style='display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:12px 14px;'>"
       +"<div style='flex:1;'><div style='font-weight:600;font-size:14px;'>"+esc(p.name)+"</div>"
       +"<div style='font-size:12px;color:#64748b;'>"+esc(p.unit)+"</div></div>"
-      +"<div style='text-align:center;'><div style='font-size:10px;color:#64748b;margin-bottom:2px;'>On Truck</div>"
-      +"<input type='number' class='inp' style='width:70px;text-align:center;font-size:16px;font-weight:700;padding:8px;' value='"+p.qty+"' min='0' id='ti-qty-"+i+"'></div>"
-      +"<div style='text-align:center;'><div style='font-size:10px;color:#64748b;margin-bottom:2px;'>Warn Below</div>"
-      +"<input type='number' class='inp' style='width:70px;text-align:center;font-size:14px;padding:8px;' value='"+(p.warnBelow||0)+"' min='0' id='ti-warn-"+i+"' placeholder='0'></div>"
-      +"<button class='btn bd' style='padding:5px 9px;font-size:12px;align-self:flex-start;' data-a='ti-remove-prod' data-v='"+i+"'>X</button>"
-      +"</div></div>";
+      +"<input type='number' class='inp' style='width:80px;text-align:center;font-size:16px;font-weight:700;padding:8px;' value='"+p.qty+"' min='0' id='ti-qty-"+i+"'>"
+      +"<button class='btn bd' style='padding:5px 9px;font-size:12px;' data-a='ti-remove-prod' data-v='"+i+"'>X</button></div>";
   }).join("");
 
   var existing = (inv.products||[]).map(function(p){ return p.id; });
@@ -1025,10 +1022,8 @@ async function tiSubmit(){
   var variances = [];
   (inv.products||[]).forEach(function(p, i){
     var inp = document.getElementById("ti-qty-"+i);
-    var warnInp = document.getElementById("ti-warn-"+i);
     if(inp){
       var newQty = parseInt(inp.value)||0;
-      if(warnInp) p.warnBelow = parseInt(warnInp.value)||0;
       var prev = p.qty;
       // Check variance - more than 50% drop
       if(prev > 0 && newQty < prev * 0.5){
@@ -1116,7 +1111,7 @@ function renderSettings(){
   else if(tab==="trucks") body=`<div style="display:flex;gap:8px;margin-bottom:14px;"><input type="text" class="inp" id="new-truck-inp" placeholder="e.g. Truck 10" style="flex:1;"><button class="btn bp" style="padding:10px 14px;font-size:13px;" data-a="add-truck">Add</button></div>${S.trucks.map((t,i)=>`<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:10px 14px;"><span style="flex:1;font-size:14px;font-weight:500;">${esc(t)}</span><button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-truck" data-v="${i}">X</button></div>`).join("")}`;
   else if(tab==="techs") body=`<div style="display:flex;gap:8px;margin-bottom:14px;"><input type="text" class="inp" id="new-tech-inp" placeholder="Full name" style="flex:1;"><button class="btn bp" style="padding:10px 14px;font-size:13px;" data-a="add-tech">Add</button></div>${S.techs.map((t,i)=>`<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:10px 14px;"><span style="flex:1;font-size:14px;font-weight:500;">${esc(t)}</span><button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-tech" data-v="${i}">X</button></div>`).join("")}`;
   else if(tab==="cats") body=renderCatSettings();
-  else if(tab==="prods") body=`<p style="color:#475569;font-size:13px;margin-bottom:14px;">Edit thresholds and units.</p>${S.products.map(p=>`<div class="card" style="margin-bottom:8px;"><div style="font-weight:600;font-size:14px;margin-bottom:8px;">${esc(p.name)}</div><div class="g3"><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Unit</div><input class="inp" style="padding:6px 8px;font-size:13px;" value="${esc(p.unit)}" data-prodid="${p.id}" data-prodfield="unit"></div><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Qty</div><input type="number" class="inp" style="padding:6px 8px;font-size:13px;" value="${p.qty}" data-prodid="${p.id}" data-prodfield="qty"></div><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Low At</div><input type="number" class="inp" style="padding:6px 8px;font-size:13px;" value="${p.lowAt}" data-prodid="${p.id}" data-prodfield="lowAt"></div></div></div>`).join("")}`;
+  else if(tab==="prods") body=`<p style="color:#475569;font-size:13px;margin-bottom:14px;">Edit thresholds and units. <b>Truck Warn Above</b>: if a tech has more than this amount on their truck, they cannot request more (0 = no limit).</p>${S.products.map(p=>`<div class="card" style="margin-bottom:8px;"><div style="font-weight:600;font-size:14px;margin-bottom:8px;">${esc(p.name)}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;"><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Unit</div><input class="inp" style="padding:6px 8px;font-size:13px;" value="${esc(p.unit)}" data-prodid="${p.id}" data-prodfield="unit"></div><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Qty</div><input type="number" class="inp" style="padding:6px 8px;font-size:13px;" value="${p.qty}" data-prodid="${p.id}" data-prodfield="qty"></div><div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">Low At</div><input type="number" class="inp" style="padding:6px 8px;font-size:13px;" value="${p.lowAt}" data-prodid="${p.id}" data-prodfield="lowAt"></div><div><div style="font-size:11px;color:#f59e0b;margin-bottom:4px;">Truck Warn Above</div><input type="number" class="inp" style="padding:6px 8px;font-size:13px;border-color:#92400e;" value="${p.truckWarnAbove||0}" data-prodid="${p.id}" data-prodfield="truckWarnAbove"></div></div></div>`).join("")}`;
   else if(tab==="me") body=`<p style="color:#475569;font-size:13px;margin-bottom:14px;">Your name appears in logs and approvals.</p><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Your Name</label><input type="text" class="inp" id="mgr-name-inp" value="${esc(S.managerName)}" placeholder="Enter your name"><button class="btn bp" style="margin-top:12px;" data-a="save-mgr-name">Save</button>`;
   document.getElementById("pg-settings").innerHTML=`<h2 style="font-size:20px;font-weight:700;margin-bottom:14px;">Settings</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;">${tbns}</div>${body}`;
 }
