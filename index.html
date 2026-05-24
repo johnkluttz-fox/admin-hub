@@ -895,13 +895,26 @@ async function sendLowEmail(low){
 async function removeProd(id){
   const p = S.products.find(function(x){return x.id===id;});
   if(!p) return;
-  if(!confirm("Remove "+p.name+" from inventory? This will also remove it from the sheet.")) return;
-  S.products = S.products.filter(function(x){return x.id!==id;});
-  S._restockId=null; S._adjId=null;
-  save(); renderInv();
-  // Remove from sheet if it has a row number
-  if(p.row){
-    try { await gs("removeProductFromSheetServer",{row:p.row}); } catch(e){ console.warn("Remove from sheet:",e); }
+  // If no row number, sync first to get it
+  if(!p.row){
+    alert("Product row number unknown. Please tap Sync first to refresh sheet data, then try removing again.");
+    return;
+  }
+  if(!confirm("Remove "+p.name+" from inventory? This will remove it from both the app and the sheet.")) return;
+  // Remove from sheet FIRST before updating app
+  try {
+    const result = await gs("removeProductFromSheetServer",{row:p.row});
+    if(result && result.ok){
+      S.products = S.products.filter(function(x){return x.id!==id;});
+      S._restockId=null; S._adjId=null;
+      save(); renderInv();
+      alert(p.name+" removed from sheet and app successfully.");
+    } else {
+      alert("Could not remove from sheet. Please try again.");
+    }
+  } catch(e){
+    console.warn("Remove from sheet:",e);
+    alert("Error removing from sheet: "+e.message+". Product not removed.");
   }
 }
 
