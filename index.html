@@ -488,6 +488,9 @@ function handleAction(a,v,el,e){
   if(a==="del-tech-account") { delTechAccount(parseInt(v)); return; }
   if(a==="reset-tech-pin") { resetTechPin(parseInt(v)); return; }
   if(a==="ti-add-prod") { tiAddProd(); return; }
+  if(a==="inv-show-add") { S._showAddProd=!S._showAddProd; renderInv(); return; }
+  if(a==="inv-cancel-add") { S._showAddProd=false; renderInv(); return; }
+  if(a==="inv-add-prod") { invAddProduct(); return; }
   if(a==="ti-remove-prod") { tiRemoveProd(v); return; }
   if(a==="ti-submit") { tiSubmit(); return; }
   if(a==="save-mgr-name") { S.managerName=document.getElementById("mgr-name-inp").value||S.managerName; save(); alert("Saved!"); return; }
@@ -696,9 +699,27 @@ function renderInv(){
         <div style="display:flex;gap:5px;"><button class="btn bg" style="padding:5px 9px;font-size:12px;" data-a="open-restock" data-v="${p.id}">+Stock</button><button class="btn bg" style="padding:5px 9px;font-size:12px;" data-a="open-adj" data-v="${p.id}">Edit</button></div>
       </div>${panel}</div>`;
   }).join("");
-  pg.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><h2 style="font-size:20px;font-weight:700;">Inventory</h2><button class="btn bg" style="font-size:11px;padding:5px 10px;" data-a="sync">Sync Sheet</button></div>
+  const addPanel = S._showAddProd ?
+    `<div class="card" style="padding:16px;margin-bottom:14px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:12px;">New Product</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <input placeholder="Product name" id="new-prod-name" class="inp">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <input placeholder="Unit (oz, lbs...)" id="new-prod-unit" class="inp">
+          <input type="number" placeholder="Qty" id="new-prod-qty" class="inp">
+          <input type="number" placeholder="Low at" id="new-prod-lowat" class="inp">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn bs" style="flex:2;" data-a="inv-add-prod">Add to Sheet</button>
+          <button class="btn bg" style="flex:1;" data-a="inv-cancel-add">Cancel</button>
+        </div>
+      </div>
+    </div>` : "";
+
+  pg.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><h2 style="font-size:20px;font-weight:700;">Inventory</h2><div style="display:flex;gap:6px;"><button class="btn bp" style="font-size:11px;padding:5px 10px;" data-a="inv-show-add">+ Add Product</button><button class="btn bg" style="font-size:11px;padding:5px 10px;" data-a="sync">Sync</button></div></div>
     <p style="color:#475569;font-size:13px;margin-bottom:16px;">From Active Inventory sheet</p>
     ${low.length>0?`<div style="background:#431407;border:1px solid #c2410c;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:8px;align-items:center;"><span style="color:#fb923c;">!</span><span style="color:#fb923c;font-size:13px;font-weight:500;">${low.length} item${low.length>1?"s":""} low on stock</span></div>`:""}
+    ${addPanel}
     <div style="display:flex;gap:8px;margin-bottom:14px;"><button class="btn bg" style="font-size:12px;" data-a="inv-view" data-v="checkouts">Checkout History</button></div>
     ${rows}`;
 }
@@ -869,6 +890,30 @@ async function sendLowEmail(low){
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
+// ─── Add Product to Inventory ─────────────────────────────────────────────────
+async function invAddProduct(){
+  const name = (document.getElementById("new-prod-name")||{}).value||"";
+  const unit = (document.getElementById("new-prod-unit")||{}).value||"each";
+  const qty  = parseInt((document.getElementById("new-prod-qty")||{}).value)||0;
+  const lowAt= parseInt((document.getElementById("new-prod-lowat")||{}).value)||0;
+  if(!name.trim()){alert("Please enter a product name.");return;}
+  // Add to local products
+  const newProd = {id:"sheet_new_"+Date.now(), name:name.trim(), unit:unit.trim(), qty:qty, lowAt:lowAt, reorderNote:"", truckWarnAbove:0, row:null};
+  S.products.push(newProd);
+  S._showAddProd = false;
+  save();
+  renderInv();
+  // Write to sheet
+  try {
+    const result = await gs("addProductToSheetServer", {name:name.trim(), unit:unit.trim(), qty:qty, lowAt:lowAt});
+    if(result && result.row){
+      // Update the product with its real row number
+      const p = S.products.find(function(p){return p.id===newProd.id;});
+      if(p){ p.id="sheet_"+result.row; p.row=result.row; save(); }
+    }
+  } catch(e){ console.warn("Add product to sheet:", e); }
+}
+
 // ─── Truck Inventory ──────────────────────────────────────────────────────────
 function renderTruckInv(){
   var pg = document.getElementById("pg-truckinv");
