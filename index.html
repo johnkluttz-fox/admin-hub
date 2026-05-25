@@ -1248,15 +1248,18 @@ async function tiSubmit(){
 
   inv.lastSubmit = new Date().toISOString();
   save();
-  renderTruckInv();
 
-  // Log to sheet
+  // Log to sheet BEFORE re-rendering
   var rows = (inv.products||[]).map(function(p){
-    return [new Date().toLocaleDateString("en-US"), techName, truck, p.name, p.unit, p.qty, p.prevQty||0, p.qty-(p.prevQty||0)];
+    return [new Date().toLocaleDateString("en-US"), techName, truck||inv.truck||"", p.name, p.unit, p.qty, p.prevQty||0, p.qty-(p.prevQty||0)];
   });
-  try {
-    await gs("logTruckInventoryServer", {rows:rows, headers:["Date","Technician","Truck","Product","Unit","Qty","Prev Qty","Change"]});
-  } catch(e){ console.warn("Sheet log:", e); }
+  if(rows.length > 0){
+    try {
+      await gs("logTruckInventoryServer", {rows:rows, headers:["Date","Technician","Truck","Product","Unit","Qty","Prev Qty","Change"]});
+    } catch(e){ console.warn("Sheet log:", e); }
+  }
+
+  renderTruckInv();
 
   // Send variance email if needed
   if(variances.length > 0){
