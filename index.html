@@ -539,6 +539,11 @@ document.addEventListener("change",function(e){
   }
   if(t.id==="insp-truck") S.inspData.truck=t.value;
   if(t.id==="insp-filter"){S.inspListFilter=t.value;render();}
+  // Truck assignment dropdown
+  if(t.getAttribute && t.getAttribute("data-a")==="assign-truck"){
+    var idx = parseInt(t.getAttribute("data-v"));
+    assignTruck(idx, t.value);
+  }
   // Show/hide "Other" reason text input
   if(t.id && t.id.startsWith("adj-reason-") && !t.id.includes("other")){
     const pid = t.id.replace("adj-reason-","");
@@ -610,6 +615,7 @@ function handleAction(a,v,el,e){
   if(a==="add-tech-account") { addTechAccount(); return; }
   if(a==="del-tech-account") { delTechAccount(parseInt(v)); return; }
   if(a==="reset-tech-pin") { resetTechPin(parseInt(v)); return; }
+  if(a==="assign-truck") { assignTruck(parseInt(v), el.value); return; }
   if(a==="send-login-email") { sendLoginEmail("tech", parseInt(v)); return; }
   if(a==="send-mgr-login-email") { sendLoginEmail("manager", parseInt(v)); return; }
   if(a==="ti-add-prod") { tiAddProd(); return; }
@@ -1134,9 +1140,10 @@ function renderTruckInvTech(pg){
   var inv = S.truckInventories[techName] || {truck:"", products:[], lastSubmit:null};
   var isNew = !inv.lastSubmit;
 
-  if(!inv.truck){
-    var techIdx = S.techs.indexOf(techName);
-    if(techIdx >= 0 && techIdx < S.trucks.length) inv.truck = S.trucks[techIdx];
+  // Get truck from tech account assignment
+  var techAcct = S.techAccounts.find(function(t){ return t.name===techName; });
+  if(techAcct && techAcct.truck && !inv.truck){
+    inv.truck = techAcct.truck;
   }
 
   var prodRows = (inv.products||[]).map(function(p, i){
@@ -1151,11 +1158,14 @@ function renderTruckInvTech(pg){
   var available = S.products.filter(function(p){ return !existing.includes(p.id); });
   var addOpts = available.map(function(p){ return "<option value='"+p.id+"'>"+esc(p.name)+" ("+esc(p.unit)+")</option>"; }).join("");
 
-  var truckSel = inv.truck ? "" :
+  // If truck assigned by manager, use it. Otherwise show selector.
+  var assignedTruck = techAcct ? techAcct.truck : "";
+  var truckSel = (inv.truck || assignedTruck) ? "" :
     "<div style='margin-bottom:14px;'><label style='display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;'>My Truck</label>"
     +"<select class='inp' id='ti-truck-select'><option value=''>Select your truck...</option>"
     +S.trucks.map(function(t){ return "<option value='"+esc(t)+"'"+(inv.truck===t?" selected":"")+">"+esc(t)+"</option>"; }).join("")
     +"</select></div>";
+  if(assignedTruck && !inv.truck) inv.truck = assignedTruck;
 
   var lastLine = inv.lastSubmit
     ? "<p style='color:#64748b;font-size:12px;margin-bottom:16px;'>Last submitted: "+fd(inv.lastSubmit)+"</p>"
@@ -1288,9 +1298,10 @@ function renderSettings(){
       </div>
     </div>`;
   }).join("");
+  var truckOpts = S.trucks.map(function(tr){return "<option value='"+esc(tr)+"'>"+esc(tr)+"</option>";}).join("");
   var techRows = S.techAccounts.map(function(t,i){
     return `<div class="card" style="margin-bottom:8px;padding:12px 14px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:${t.email?"8px":"0"};">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <div style="flex:1;">
           <div style="font-weight:600;font-size:14px;">${esc(t.name)}</div>
           <div style="font-size:12px;color:#64748b;">${t.email?esc(t.email):"No email set"}</div>
@@ -1301,6 +1312,13 @@ function renderSettings(){
           <button class="btn bg" style="padding:5px 10px;font-size:11px;" data-a="reset-tech-pin" data-v="${i}">Reset PIN</button>
           <button class="btn bd" style="padding:5px 9px;font-size:11px;" data-a="del-tech-account" data-v="${i}">Remove</button>
         </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;color:#64748b;white-space:nowrap;">Assigned Truck:</label>
+        <select class="inp" style="font-size:13px;padding:6px 10px;" data-a="assign-truck" data-v="${i}">
+          <option value="">-- Not assigned --</option>
+          ${S.trucks.map(function(tr){return "<option value='"+esc(tr)+"'"+(t.truck===tr?" selected":"")+">"+esc(tr)+"</option>";}).join("")}
+        </select>
       </div>
     </div>`;
   }).join("");
@@ -1371,6 +1389,13 @@ async function sendLoginEmail(role, idx){
   } catch(e){
     alert("Could not send email: "+e.message);
   }
+}
+
+function assignTruck(idx, truck){
+  if(!S.techAccounts[idx]) return;
+  S.techAccounts[idx].truck = truck;
+  save();
+  saveAccountsToSheet();
 }
 
 function addManager(){
