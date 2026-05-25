@@ -297,6 +297,13 @@ async function syncFromSheet(){
   try {
     const [pr,tc] = await Promise.all([gs("getProductsServer",null),gs("getTechsServer",null)]);
     if(pr&&pr.products&&pr.products.length){
+      // Preserve local truckWarnAbove values when syncing
+      pr.products.forEach(function(p){
+        var local = S.products.find(function(lp){ return lp.id===p.id||lp.name===p.name; });
+        if(local && local.truckWarnAbove) p.truckWarnAbove = local.truckWarnAbove;
+        // Use sheet value if it has one
+        if(p.truckWarnAbove===undefined) p.truckWarnAbove = 0;
+      });
       pr.products.sort(function(a,b){ return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
       S.products=pr.products;lsSet("hub:products",pr.products);
     }
@@ -591,13 +598,14 @@ document.addEventListener("change",function(e){
       p[t.dataset.prodfield]=t.dataset.prodfield==="unit"?t.value:(parseInt(t.value)||0);
       save();
       // Write qty and lowAt changes back to sheet
-      if(t.dataset.prodfield==="qty"||t.dataset.prodfield==="lowAt"){
+      if(t.dataset.prodfield==="qty"||t.dataset.prodfield==="lowAt"||t.dataset.prodfield==="truckWarnAbove"){
         clearTimeout(window._prodSaveTimer);
         window._prodSaveTimer = setTimeout(async function(){
           if(p.row){
             try {
               if(t.dataset.prodfield==="qty") await gs("updateQtyServer",{row:p.row,qty:p.qty});
               if(t.dataset.prodfield==="lowAt") await gs("updateLowAtServer",{row:p.row,lowAt:p.lowAt});
+              if(t.dataset.prodfield==="truckWarnAbove") await gs("updateTruckWarnAboveServer",{row:p.row,truckWarnAbove:p.truckWarnAbove||0});
             } catch(e){ console.warn("Product save:",e); }
           }
         }, 1000);
