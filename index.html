@@ -584,8 +584,22 @@ document.addEventListener("change",function(e){
   }
   if(t.dataset.prodid&&t.dataset.prodfield){
     const p=S.products.find(x=>x.id===t.dataset.prodid);
-    if(p) p[t.dataset.prodfield]=t.dataset.prodfield==="unit"?t.value:(parseInt(t.value)||0);
-    save();
+    if(p){
+      p[t.dataset.prodfield]=t.dataset.prodfield==="unit"?t.value:(parseInt(t.value)||0);
+      save();
+      // Write qty and lowAt changes back to sheet
+      if(t.dataset.prodfield==="qty"||t.dataset.prodfield==="lowAt"){
+        clearTimeout(window._prodSaveTimer);
+        window._prodSaveTimer = setTimeout(async function(){
+          if(p.row){
+            try {
+              if(t.dataset.prodfield==="qty") await gs("updateQtyServer",{row:p.row,qty:p.qty});
+              if(t.dataset.prodfield==="lowAt") await gs("updateLowAtServer",{row:p.row,lowAt:p.lowAt});
+            } catch(e){ console.warn("Product save:",e); }
+          }
+        }, 1000);
+      }
+    }
   }
   if(t.id==="mgr-name-inp") S.managerName=t.value;
   if(t.id==="pin-mgr-inp") S._pinMgr=t.value;
