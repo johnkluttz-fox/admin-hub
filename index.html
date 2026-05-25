@@ -1196,7 +1196,8 @@ async function confirmApprove(baseId){
   S.editOrderId=null; S._itemDecisions={}; save(); renderOrders();
 
   // One email summarizing both approved and denied
-  var te=[techEmail,...getMGMT()].filter(Boolean).join(",");
+  var te=techEmail; // Only send to tech on approval/denial
+  if(!te){ console.warn("No tech email found, skipping approval email"); S.editOrderId=null; S._itemDecisions={}; save(); renderOrders(); if(low.length) sendLowEmail(low); return; }
   var body="Order Decision - Fox Pest Control Willamette Valley\n\n"
     +"Technician: "+tech+"\nDecided By: "+S.managerName+"\n\n";
   if(approvedItems.length) body+="APPROVED:\n  - "+approvedItems.join("\n  - ")+"\n\n";
