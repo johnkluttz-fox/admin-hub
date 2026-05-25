@@ -59,27 +59,53 @@ input,textarea,select,button{font-family:inherit;}
 
 <div id="login">
   <div id="logo-login" style="height:80px;width:200px;margin-bottom:32px;"></div>
-  <div style="background:#0f1f38;border-radius:16px;padding:32px;width:100%;max-width:320px;border:1px solid #1e3a5f;">
+  <div style="background:#0f1f38;border-radius:16px;padding:32px;width:100%;max-width:340px;border:1px solid #1e3a5f;">
     <h2 style="text-align:center;font-size:18px;font-weight:600;margin-bottom:8px;">Admin Hub</h2>
-    <p style="text-align:center;color:#64748b;font-size:13px;margin-bottom:24px;">Enter your PIN to continue</p>
-    <div style="display:flex;justify-content:center;gap:10px;margin-bottom:24px;" id="dots">
-      <span class="pd" id="d0"></span><span class="pd" id="d1"></span><span class="pd" id="d2"></span><span class="pd" id="d3"></span>
+    <p style="text-align:center;color:#64748b;font-size:13px;margin-bottom:20px;">Fox Pest Control - Willamette Valley</p>
+
+    <!-- Step 1: Email -->
+    <div id="login-step-email">
+      <label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Your Email</label>
+      <input type="email" id="login-email" class="inp" placeholder="yourname@fox-marketingservices.com" style="margin-bottom:12px;">
+      <div id="email-err" style="text-align:center;color:#ef4444;font-size:13px;margin-bottom:12px;min-height:20px;"></div>
+      <button class="btn bp" id="email-next-btn" style="width:100%;padding:12px;font-size:15px;">Continue</button>
     </div>
-    <div id="debug" style="text-align:center;color:#64748b;font-size:12px;margin-bottom:8px;"></div>
-    <div id="pin-err" style="text-align:center;color:#ef4444;font-size:13px;margin-bottom:12px;min-height:20px;"></div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="pinpad">
-      <button class="pk" id="pk1">1</button>
-      <button class="pk" id="pk2">2</button>
-      <button class="pk" id="pk3">3</button>
-      <button class="pk" id="pk4">4</button>
-      <button class="pk" id="pk5">5</button>
-      <button class="pk" id="pk6">6</button>
-      <button class="pk" id="pk7">7</button>
-      <button class="pk" id="pk8">8</button>
-      <button class="pk" id="pk9">9</button>
-      <div></div>
-      <button class="pk" id="pk0">0</button>
-      <button class="pk del" id="pkdel">&larr;</button>
+
+    <!-- Step 2: Role Selection -->
+    <div id="login-step-role" style="display:none;">
+      <div id="login-role-email" style="text-align:center;color:#94a3b8;font-size:13px;margin-bottom:20px;"></div>
+      <p style="text-align:center;color:#e2e8f0;font-size:15px;font-weight:600;margin-bottom:16px;">How are you logging in today?</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn bp" id="role-admin-btn" style="padding:16px;font-size:15px;border-radius:10px;">Administrator</button>
+        <button class="btn bg" id="role-tech-btn" style="padding:16px;font-size:15px;border-radius:10px;">Technician</button>
+      </div>
+      <button style="background:transparent;border:none;color:#64748b;font-size:12px;cursor:pointer;margin-top:16px;width:100%;text-align:center;" id="back-from-role-btn">Use a different email</button>
+    </div>
+
+    <!-- Step 3: PIN -->
+    <div id="login-step-pin" style="display:none;">
+      <div id="login-email-display" style="text-align:center;color:#94a3b8;font-size:13px;margin-bottom:4px;"></div>
+      <div id="login-role-display" style="text-align:center;color:#3b82f6;font-size:12px;font-weight:600;margin-bottom:16px;text-transform:uppercase;letter-spacing:.05em;"></div>
+      <div style="display:flex;justify-content:center;gap:10px;margin-bottom:20px;" id="dots">
+        <span class="pd" id="d0"></span><span class="pd" id="d1"></span><span class="pd" id="d2"></span><span class="pd" id="d3"></span>
+      </div>
+      <div id="debug" style="text-align:center;color:#64748b;font-size:12px;margin-bottom:4px;"></div>
+      <div id="pin-err" style="text-align:center;color:#ef4444;font-size:13px;margin-bottom:12px;min-height:20px;"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="pinpad">
+        <button class="pk" id="pk1">1</button>
+        <button class="pk" id="pk2">2</button>
+        <button class="pk" id="pk3">3</button>
+        <button class="pk" id="pk4">4</button>
+        <button class="pk" id="pk5">5</button>
+        <button class="pk" id="pk6">6</button>
+        <button class="pk" id="pk7">7</button>
+        <button class="pk" id="pk8">8</button>
+        <button class="pk" id="pk9">9</button>
+        <div></div>
+        <button class="pk" id="pk0">0</button>
+        <button class="pk del" id="pkdel">&larr;</button>
+      </div>
+      <button style="background:transparent;border:none;color:#64748b;font-size:12px;cursor:pointer;margin-top:12px;width:100%;text-align:center;" id="back-to-email-btn">Use a different email</button>
     </div>
   </div>
   <p style="color:#334155;font-size:12px;margin-top:24px;">Fox Pest Control - Willamette Valley Branch</p>
