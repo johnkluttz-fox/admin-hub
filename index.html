@@ -503,6 +503,8 @@ function showSetPin(){
   };
 }
 function dots(){for(let i=0;i<4;i++){const d=document.getElementById("d"+i);if(d)d.className="pd"+(pin.length>i?" on":"");}}
+var _refreshInterval = null;
+
 function login(role){
   S.role=role;
   S.tab=role==="tech"?"checkout":"dashboard";
@@ -511,11 +513,38 @@ function login(role){
   document.getElementById("login").style.display="none";
   document.getElementById("app").style.display="block";
   syncFromSheet();
-  // Save accounts to sheet on every login to keep sheet in sync
   saveAccountsToSheet();
+  // Start background order refresh every 2 minutes (managers only)
+  if(role==="manager"){
+    if(_refreshInterval) clearInterval(_refreshInterval);
+    _refreshInterval = setInterval(async function(){
+      try {
+        const result = await gs("getPendingServer", null);
+        if(result && result.orders){
+          S.orders = result.orders;
+          lsSet("hub:orders", S.orders);
+          // Update nav badge and dashboard without full re-render
+          var pending = S.orders.filter(function(o){ return o.status==="Pending"; }).length;
+          // Re-render nav to update badge
+          var mgrTabs=[{id:"dashboard",l:"Home"},{id:"inspect",l:"Fleet"},{id:"inventory",l:"Inventory"},{id:"orders",l:"Orders"},{id:"checkout",l:"Checkout"},{id:"truckinv",l:"Truck Inv"},{id:"settings",l:"Settings"}];
+          document.getElementById("nav").innerHTML=mgrTabs.map(function(t){
+            return "<button class='nb"+(S.tab===t.id?" on":"")+"' data-a='tab' data-v='"+t.id+"'>"+t.l+(t.id==="orders"&&pending>0?"<span class='bdg'>"+pending+"</span>":"")+"</button>";
+          }).join("")+"<button class='nb' id='logout-btn' style='color:#475569;'>Exit</button>";
+          // Re-attach logout
+          var lo=document.getElementById("logout-btn");
+          if(lo){ lo.onclick=function(){logout();}; lo.addEventListener("touchend",function(e){e.preventDefault();logout();},{passive:false}); }
+          // If on dashboard, refresh it to show alert
+          if(S.tab==="dashboard") renderDash();
+          // If on orders, refresh it too
+          if(S.tab==="orders") renderOrders();
+        }
+      } catch(e){ console.warn("Background refresh:", e.message); }
+    }, 2 * 60 * 1000); // every 2 minutes
+  }
 }
 function logout(){
   S.role=null; S.currentUser=null; S.checkTech=""; pin=""; loginEmail=""; loginRole="";
+  if(_refreshInterval){ clearInterval(_refreshInterval); _refreshInterval=null; }
   document.getElementById("app").style.display="none";
   var loginDiv = document.getElementById("login");
   loginDiv.style.display="flex";
