@@ -296,7 +296,10 @@ async function syncFromSheet(){
   badge("syncing");
   try {
     const [pr,tc] = await Promise.all([gs("getProductsServer",null),gs("getTechsServer",null)]);
-    if(pr&&pr.products&&pr.products.length){S.products=pr.products;lsSet("hub:products",pr.products);}
+    if(pr&&pr.products&&pr.products.length){
+      pr.products.sort(function(a,b){ return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
+      S.products=pr.products;lsSet("hub:products",pr.products);
+    }
     if(tc&&tc.techs&&tc.techs.length){
       S.techs=tc.techs.map(t=>t.name);
       S.techEmails=tc.techs;
@@ -1276,6 +1279,8 @@ async function invAddProduct(){
   // Add to local products
   const newProd = {id:"sheet_new_"+Date.now(), name:name.trim(), unit:unit.trim(), qty:qty, lowAt:lowAt, reorderNote:"", truckWarnAbove:0, row:null};
   S.products.push(newProd);
+  // Sort alphabetically
+  S.products.sort(function(a,b){ return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
   S._showAddProd = false;
   save();
   renderInv();
