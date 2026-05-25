@@ -1055,47 +1055,175 @@ async function refreshOrders(){
 function renderOrders(){
   const {orders,products}=S;
   const filter=S.ordersFilter;
-  const filtered=filter==="All"?orders:orders.filter(o=>o.status===filter);
   const pend=orders.filter(o=>o.status==="Pending").length;
   function osc(st){return st==="Pending"?"#f59e0b":st==="Approved"?"#22c55e":"#ef4444";}
-  const fbtns=["Pending","Approved","Denied","All"].map(f=>`<button class="fb${filter===f?" on":""}" data-a="order-filter" data-v="${f}">${f}${f==="Pending"&&pend>0?" ("+pend+")":""}</button>`).join("");
-  const cards=filtered.map(order=>{
-    const prod=products.find(p=>p.id===order.productId);
-    const isAct=S.editOrderId===order.id;
-    let panel="";
-    if(order.status==="Pending"&&!isAct) panel=`<div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid #1e3a5f;"><button class="btn bs" style="flex:1;padding:8px;font-size:13px;" data-a="order-action" data-v="${order.id}|approve">Approve</button><button class="btn bd" style="flex:1;padding:8px;font-size:13px;" data-a="order-action" data-v="${order.id}|deny">Deny</button></div>`;
-    else if(isAct&&S.editOrderType==="approve") panel=`<div style="padding-top:10px;border-top:1px solid #1e3a5f;"><div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Adjust qty if needed:</div><div style="display:flex;gap:8px;margin-bottom:8px;"><input type="number" class="inp" id="app-qty-${order.id}" value="${order.requestedQty}" style="flex:1;padding:7px;font-size:14px;font-weight:700;"><span style="display:flex;align-items:center;color:#64748b;font-size:13px;">${esc(order.unit)}</span></div>${prod&&order.requestedQty>prod.qty?`<div style="color:#f97316;font-size:12px;margin-bottom:8px;">Only ${prod.qty} in stock</div>`:""}<div style="display:flex;gap:8px;"><button class="btn bs" style="flex:2;padding:9px;font-size:13px;" data-a="approve-order" data-v="${order.id}">Confirm Approval</button><button class="btn bg" style="flex:1;padding:9px;font-size:13px;" data-a="order-action-cancel">Cancel</button></div></div>`;
-    else if(isAct&&S.editOrderType==="deny") panel=`<div style="padding-top:10px;border-top:1px solid #1e3a5f;"><input type="text" class="inp" id="deny-rsn-${order.id}" style="margin-bottom:8px;padding:7px 10px;font-size:13px;" placeholder="Reason (optional)"><div style="display:flex;gap:8px;"><button class="btn bd" style="flex:2;padding:9px;font-size:13px;" data-a="deny-order" data-v="${order.id}">Confirm Denial</button><button class="btn bg" style="flex:1;padding:9px;font-size:13px;" data-a="order-action-cancel">Cancel</button></div></div>`;
-    return `<div class="card" style="margin-bottom:10px;${order.status==="Pending"?"border-color:#92400e30":""}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
-        <div><div style="font-weight:700;font-size:15px;">${esc(order.product)}</div><div style="color:#64748b;font-size:12px;margin-top:2px;">${esc(order.tech)} - ${fd(order.date)}</div><div style="color:#94a3b8;font-size:12px;margin-top:1px;">Requested: ${order.requestedQty} ${esc(order.unit)}${prod?` <span style="color:#475569;">- ${prod.qty} in stock</span>`:""}</div>${order.notes?`<div style="color:#64748b;font-size:12px;margin-top:3px;font-style:italic;">"${esc(order.notes)}"</div>`:""}${order.status==="Approved"?`<div style="color:#22c55e;font-size:12px;margin-top:3px;">Approved: ${order.approvedQty} by ${esc(order.approvedBy)}</div>`:""}${order.status==="Denied"?`<div style="color:#ef4444;font-size:12px;margin-top:3px;">Denied by ${esc(order.approvedBy)}${order.denyReason?" - "+esc(order.denyReason):""}</div>`:""}</div>
-        <span class="sbdg" style="background:${osc(order.status)}22;color:${osc(order.status)};white-space:nowrap;">${order.status}</span>
-      </div>${panel}</div>`;
+  const fbtns=["Pending","Approved","Denied","All"].map(function(f){
+    return "<button class='fb"+(filter===f?" on":"")+"' data-a='order-filter' data-v='"+f+"'>"+f+(f==="Pending"&&pend>0?" ("+pend+")":"")+"</button>";
   }).join("");
-  document.getElementById("pg-orders").innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><div><h2 style="font-size:20px;font-weight:700;">Product Orders</h2>${pend>0?`<p style="color:#f59e0b;font-size:13px;margin-top:2px;">${pend} pending approval</p>`:""}</div><button class="btn bg" style="font-size:11px;padding:5px 10px;" data-a="refresh-orders">Refresh</button></div><div style="display:flex;gap:6px;margin-bottom:16px;">${fbtns}</div>${filtered.length===0?`<div style="text-align:center;color:#475569;padding:40px;">No ${filter.toLowerCase()} orders.</div>`:cards}`;
+
+  // Group orders by base order ID (strip the -productId suffix) and tech+date
+  var groups = {};
+  orders.forEach(function(o){
+    var baseId = o.id.split("-")[0]+"-"+o.id.split("-")[1]; // ORD-timestamp
+    if(!groups[baseId]) groups[baseId] = {tech:o.tech, techEmail:o.techEmail, date:o.date, status:o.status, items:[]};
+    groups[baseId].items.push(o);
+    // Group status: if any pending, group is pending
+    if(o.status==="Pending") groups[baseId].status="Pending";
+  });
+
+  // Filter groups
+  var filteredGroups = Object.values(groups).filter(function(g){
+    return filter==="All" || g.status===filter;
+  });
+
+  var cards = filteredGroups.map(function(group){
+    var baseId = group.items[0].id.split("-")[0]+"-"+group.items[0].id.split("-")[1];
+    var isActive = S.editOrderId===baseId;
+    var allPending = group.items.every(function(o){ return o.status==="Pending"; });
+    var groupStatus = group.status;
+
+    // Item rows with qty adjusters
+    var itemRows = group.items.map(function(o){
+      var prod = products.find(function(p){ return p.id===o.productId; });
+      var stockInfo = prod ? " <span style='color:#475569;font-size:11px;'>"+prod.qty+" in stock</span>" : "";
+      var statusBadge = o.status!=="Pending"
+        ? "<span style='font-size:11px;font-weight:600;color:"+osc(o.status)+";margin-left:6px;'>"+o.status+"</span>"
+        : "";
+      var qtyInput = (isActive&&S.editOrderType==="approve")
+        ? "<input type='number' class='inp' id='aqty-"+o.id+"' value='"+o.requestedQty+"' style='width:60px;padding:5px;font-size:13px;font-weight:700;text-align:center;'>"
+        : "<span style='font-weight:700;'>"+o.requestedQty+"</span>";
+      var approvedInfo = o.status==="Approved"
+        ? "<div style='font-size:11px;color:#22c55e;margin-top:2px;'>Approved: "+o.approvedQty+" by "+esc(o.approvedBy)+"</div>"
+        : o.status==="Denied"
+        ? "<div style='font-size:11px;color:#ef4444;margin-top:2px;'>Denied by "+esc(o.approvedBy||"")+(o.denyReason?" - "+esc(o.denyReason):"")+"</div>"
+        : "";
+      return "<div style='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #0a1628;'>"
+        +"<div style='flex:1;'>"
+        +"<div style='font-size:14px;font-weight:600;'>"+esc(o.product)+statusBadge+"</div>"
+        +(o.notes?"<div style='font-size:11px;color:#64748b;font-style:italic;'>"+esc(o.notes)+"</div>":"")
+        +approvedInfo
+        +"</div>"
+        +"<div style='text-align:right;'>"
+        +qtyInput+" "+esc(o.unit)+stockInfo
+        +(prod&&o.requestedQty>prod.qty?"<div style='font-size:11px;color:#f97316;'>Low stock</div>":"")
+        +"</div>"
+        +"</div>";
+    }).join("");
+
+    // Action panel
+    var panel = "";
+    if(allPending&&!isActive){
+      panel = "<div style='display:flex;gap:8px;padding-top:10px;border-top:1px solid #1e3a5f;margin-top:4px;'>"
+        +"<button class='btn bs' style='flex:1;padding:10px;font-size:14px;' data-a='order-action' data-v='"+baseId+"|approve'>Approve All</button>"
+        +"<button class='btn bd' style='flex:1;padding:10px;font-size:14px;' data-a='order-action' data-v='"+baseId+"|deny'>Deny All</button>"
+        +"</div>";
+    } else if(isActive&&S.editOrderType==="approve"){
+      panel = "<div style='padding-top:10px;border-top:1px solid #1e3a5f;margin-top:4px;'>"
+        +"<div style='font-size:12px;color:#94a3b8;margin-bottom:8px;'>Adjust quantities if needed, then confirm:</div>"
+        +"<div style='display:flex;gap:8px;'>"
+        +"<button class='btn bs' style='flex:2;padding:10px;font-size:14px;' data-a='approve-order' data-v='"+baseId+"'>Confirm Approval</button>"
+        +"<button class='btn bg' style='flex:1;padding:10px;font-size:13px;' data-a='order-action-cancel'>Cancel</button>"
+        +"</div></div>";
+    } else if(isActive&&S.editOrderType==="deny"){
+      panel = "<div style='padding-top:10px;border-top:1px solid #1e3a5f;margin-top:4px;'>"
+        +"<input type='text' class='inp' id='deny-rsn-"+baseId+"' style='margin-bottom:8px;padding:7px 10px;font-size:13px;' placeholder='Reason for denial (optional)'>"
+        +"<div style='display:flex;gap:8px;'>"
+        +"<button class='btn bd' style='flex:2;padding:10px;font-size:14px;' data-a='deny-order' data-v='"+baseId+"'>Confirm Denial</button>"
+        +"<button class='btn bg' style='flex:1;padding:10px;font-size:13px;' data-a='order-action-cancel'>Cancel</button>"
+        +"</div></div>";
+    }
+
+    return "<div class='card' style='margin-bottom:12px;"+(allPending?"border-color:#92400e30;":"")+"'>"
+      +"<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;'>"
+      +"<div><div style='font-weight:700;font-size:16px;'>"+esc(group.tech)+"</div>"
+      +"<div style='color:#64748b;font-size:12px;margin-top:2px;'>"+fd(group.date)+" &bull; "+group.items.length+" item"+(group.items.length>1?"s":"")+"</div></div>"
+      +"<span class='sbdg' style='background:"+osc(groupStatus)+"22;color:"+osc(groupStatus)+";white-space:nowrap;'>"+groupStatus+"</span>"
+      +"</div>"
+      +itemRows
+      +panel
+      +"</div>";
+  }).join("");
+
+  document.getElementById("pg-orders").innerHTML=
+    "<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;'>"
+    +"<div><h2 style='font-size:20px;font-weight:700;'>Product Orders</h2>"
+    +(pend>0?"<p style='color:#f59e0b;font-size:13px;margin-top:2px;'>"+pend+" pending approval</p>":"")
+    +"</div><button class='btn bg' style='font-size:11px;padding:5px 10px;' data-a='refresh-orders'>Refresh</button></div>"
+    +"<div style='display:flex;gap:6px;margin-bottom:16px;'>"+fbtns+"</div>"
+    +(filteredGroups.length===0?"<div style='text-align:center;color:#475569;padding:40px;'>No "+filter.toLowerCase()+" orders.</div>":cards);
 }
 
-async function confirmApprove(orderId){
-  const qty=parseInt(document.getElementById("app-qty-"+orderId)?.value);
-  if(!qty||qty<=0){alert("Enter a valid quantity.");return;}
-  const order=S.orders.find(o=>o.id===orderId); if(!order) return;
-  const prod=S.products.find(p=>p.id===order.productId);
-  if(prod){const nq=Math.max(0,prod.qty-qty);prod.qty=nq;try{await gs("updateQtyServer",{row:prod.row,qty:nq});}catch(e){}}
-  order.status="Approved"; order.approvedQty=qty; order.approvedBy=S.managerName;
-  S.editOrderId=null; save(); render();
-  const te=[order.techEmail,...getMGMT()].filter(Boolean).join(",");
-  try { await gs("updateOrderStatusServer",{orderId,status:"Approved",approvedQty:qty,approvedBy:S.managerName}); await gs("addOrderHistoryServer",{...order,approvedQty:qty,approvedBy:S.managerName}); await gs("sendEmailServer",{to:te,subject:"[Fox Pest Control] Order Approved - "+order.product,body:"Your product request has been APPROVED\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nApproved Qty: "+qty+" "+order.unit+"\nApproved By: "+S.managerName+"\n\nItems will be ready for pickup.\n\nAutomated notification from Fox Admin Hub."}); } catch(e){}
-  const low=S.products.filter(p=>p.qty<=p.lowAt);
+async function confirmApprove(baseId){
+  // Get all orders in this group
+  var groupOrders = S.orders.filter(function(o){
+    return o.id.startsWith(baseId) && o.status==="Pending";
+  });
+  if(!groupOrders.length) return;
+  var tech = groupOrders[0].tech;
+  var techEmail = groupOrders[0].techEmail||"";
+  var approvedItems = [];
+  var low = [];
+
+  for(var i=0; i<groupOrders.length; i++){
+    var order = groupOrders[i];
+    var qtyInp = document.getElementById("aqty-"+order.id);
+    var qty = qtyInp ? (parseInt(qtyInp.value)||order.requestedQty) : order.requestedQty;
+    var prod = S.products.find(function(p){ return p.id===order.productId; });
+    if(prod){ var nq=Math.max(0,prod.qty-qty); prod.qty=nq; try{await gs("updateQtyServer",{row:prod.row,qty:nq});}catch(e){} if(prod.qty<=prod.lowAt) low.push(prod); }
+    order.status="Approved"; order.approvedQty=qty; order.approvedBy=S.managerName;
+    approvedItems.push(order.product+" x "+qty+" "+order.unit);
+    try {
+      await gs("updateOrderStatusServer",{orderId:order.id,status:"Approved",approvedQty:qty,approvedBy:S.managerName});
+      await gs("addOrderHistoryServer",{...order,approvedQty:qty,approvedBy:S.managerName});
+    } catch(e){}
+  }
+
+  S.editOrderId=null; save(); renderOrders();
+
+  // Send ONE approval email for all items
+  var itemList = approvedItems.join("\n  - ");
+  var te = [techEmail,...getMGMT()].filter(Boolean).join(",");
+  try {
+    await gs("sendEmailServer",{to:te,
+      subject:"[Fox Pest Control] Order Approved - "+tech+" ("+approvedItems.length+" item"+(approvedItems.length>1?"s":"")+")",
+      body:"Your product request has been APPROVED - Fox Pest Control Willamette Valley\n\n"
+        +"Technician: "+tech+"\nApproved By: "+S.managerName+"\n\n"
+        +"Approved Items:\n  - "+itemList+"\n\n"
+        +"Items will be ready for pickup.\n\nAutomated notification from Fox Admin Hub."});
+  } catch(e){}
   if(low.length) sendLowEmail(low);
 }
 
-async function confirmDeny(orderId){
-  const reason=document.getElementById("deny-rsn-"+orderId)?.value||"";
-  const order=S.orders.find(o=>o.id===orderId); if(!order) return;
-  order.status="Denied"; order.approvedBy=S.managerName; order.denyReason=reason;
-  S.editOrderId=null; save(); render();
-  const te=[order.techEmail,...getMGMT()].filter(Boolean).join(",");
-  try { await gs("updateOrderStatusServer",{orderId,status:"Denied",approvedQty:0,approvedBy:S.managerName}); await gs("sendEmailServer",{to:te,subject:"[Fox Pest Control] Order Denied - "+order.product,body:"Your product request has been DENIED\n\nTechnician: "+order.tech+"\nProduct: "+order.product+"\nDenied By: "+S.managerName+(reason?"\nReason: "+reason:"")+"\n\nContact your manager with questions.\n\nAutomated notification from Fox Admin Hub."}); } catch(e){}
+async function confirmDeny(baseId){
+  var reason = (document.getElementById("deny-rsn-"+baseId)||{}).value||"";
+  var groupOrders = S.orders.filter(function(o){
+    return o.id.startsWith(baseId) && o.status==="Pending";
+  });
+  if(!groupOrders.length) return;
+  var tech = groupOrders[0].tech;
+  var techEmail = groupOrders[0].techEmail||"";
+  var deniedItems = [];
+
+  for(var i=0; i<groupOrders.length; i++){
+    var order = groupOrders[i];
+    order.status="Denied"; order.approvedBy=S.managerName; order.denyReason=reason;
+    deniedItems.push(order.product+" x "+order.requestedQty+" "+order.unit);
+    try { await gs("updateOrderStatusServer",{orderId:order.id,status:"Denied",approvedQty:0,approvedBy:S.managerName}); } catch(e){}
+  }
+
+  S.editOrderId=null; save(); renderOrders();
+
+  // Send ONE denial email for all items
+  var itemList = deniedItems.join("\n  - ");
+  var te = [techEmail,...getMGMT()].filter(Boolean).join(",");
+  try {
+    await gs("sendEmailServer",{to:te,
+      subject:"[Fox Pest Control] Order Denied - "+tech+" ("+deniedItems.length+" item"+(deniedItems.length>1?"s":"")+")",
+      body:"Your product request has been DENIED - Fox Pest Control Willamette Valley\n\n"
+        +"Technician: "+tech+"\nDenied By: "+S.managerName+(reason?"\nReason: "+reason:"")+"\n\n"
+        +"Denied Items:\n  - "+itemList+"\n\n"
+        +"Please contact your manager if you have questions.\n\nAutomated notification from Fox Admin Hub."});
+  } catch(e){}
 }
 
 async function sendLowEmail(low){
