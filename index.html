@@ -313,31 +313,106 @@ function ring(pct,sz){sz=sz||80;const r=(sz-10)/2,c=2*Math.PI*r,o=c-(pct/100)*c,
 
 // ─── PIN ──────────────────────────────────────────────────────────────────────
 let pin="";
+// Store email and role entered at login
+var loginEmail = "";
+var loginRole = ""; // "manager" or "tech" - set at role selection step
+
+function showPinStep(){
+  document.getElementById("login-step-email").style.display="none";
+  document.getElementById("login-step-role").style.display="none";
+  document.getElementById("login-step-pin").style.display="block";
+  var disp = document.getElementById("login-email-display");
+  if(disp) disp.textContent = loginEmail;
+  var roleDisp = document.getElementById("login-role-display");
+  if(roleDisp) roleDisp.textContent = loginRole==="manager" ? "Administrator" : "Technician";
+  pin=""; dots();
+}
+
+function showRoleStep(){
+  document.getElementById("login-step-email").style.display="none";
+  document.getElementById("login-step-pin").style.display="none";
+  document.getElementById("login-step-role").style.display="block";
+  var disp = document.getElementById("login-role-email");
+  if(disp) disp.textContent = loginEmail;
+}
+
+function showEmailStep(){
+  document.getElementById("login-step-pin").style.display="none";
+  document.getElementById("login-step-role").style.display="none";
+  document.getElementById("login-step-email").style.display="block";
+  loginEmail=""; loginRole="";
+  pin=""; dots();
+  var err=document.getElementById("email-err");
+  if(err) err.textContent="";
+}
+
+function selectRole(role){
+  loginRole = role;
+  // Set currentUser based on chosen role
+  var email = loginEmail;
+  if(role==="manager"){
+    S.currentUser = S.managers.find(function(m){ return m.email.toLowerCase()===email; });
+  } else {
+    // For tech role, check tech accounts first, then manager accounts
+    S.currentUser = S.techAccounts.find(function(t){ return t.email.toLowerCase()===email; });
+    if(!S.currentUser) S.currentUser = S.managers.find(function(m){ return m.email.toLowerCase()===email; });
+  }
+  showPinStep();
+}
+
+function checkEmail(){
+  var inp = document.getElementById("login-email");
+  var email = (inp?inp.value:"").trim().toLowerCase();
+  var err = document.getElementById("email-err");
+  if(!email){ if(err) err.textContent="Please enter your email."; return; }
+  
+  var isMgr = S.managers.find(function(m){ return m.email.toLowerCase()===email; });
+  var isTech = S.techAccounts.find(function(t){ return t.email.toLowerCase()===email; });
+  
+  if(!isMgr && !isTech){
+    if(err) err.textContent="Email not found. Please check and try again.";
+    return;
+  }
+  
+  loginEmail = email;
+  
+  // If email matches BOTH manager and tech accounts - show role selection
+  if(isMgr && isTech){
+    showRoleStep();
+    return;
+  }
+  
+  // If only manager - go straight to PIN as admin
+  if(isMgr){
+    loginRole="manager";
+    S.currentUser=isMgr;
+    showPinStep();
+    return;
+  }
+  
+  // If only tech - go straight to PIN as tech
+  loginRole="tech";
+  S.currentUser=isTech;
+  showPinStep();
+}
+
 function pinTap(k){
   const err=document.getElementById("pin-err");
   if(k==="del"){pin=pin.slice(0,-1);dots();if(err)err.textContent="";return;}
   if(pin.length>=6)return;
   pin+=k; dots();
   if(pin.length>=4){
-    // Check managers
-    var mgr = S.managers.find(function(m){ return (m.isTemp?m.tempPin:m.pin)===pin; });
-    if(mgr){
-      S.currentUser=mgr;
-      S.managerName=mgr.name;
-      if(mgr.isTemp){ setTimeout(function(){ doLogin("manager",true); },200); }
-      else { setTimeout(function(){ login("manager"); },200); }
-      return;
+    if(!S.currentUser){ if(err) err.textContent="Please enter your email first."; pin=""; dots(); return; }
+    var user = S.currentUser;
+    var correctPin = user.isTemp ? user.tempPin : user.pin;
+    if(pin === correctPin){
+      var role = loginRole || (S.managers.find(function(m){ return m.id===user.id; }) ? "manager" : "tech");
+      if(user.isTemp){ setTimeout(function(){ doLogin(role,true); },200); }
+      else { setTimeout(function(){ login(role); },200); }
+    } else if(pin.length>=4){
+      if(err) err.textContent="Incorrect PIN";
+      pin=""; dots();
     }
-    // Check techs
-    var tech = S.techAccounts.find(function(t){ return (t.isTemp?t.tempPin:t.pin)===pin; });
-    if(tech){
-      S.currentUser=tech;
-      S.checkTech=tech.name;
-      if(tech.isTemp){ setTimeout(function(){ doLogin("tech",true); },200); }
-      else { setTimeout(function(){ login("tech"); },200); }
-      return;
-    }
-    if(pin.length>=4){ if(err)err.textContent="Incorrect PIN"; pin=""; dots(); }
   }
 }
 
@@ -411,20 +486,13 @@ function login(role){
   saveAccountsToSheet();
 }
 function logout(){
-  S.role=null; S.currentUser=null; S.checkTech=""; pin="";
-  // Restore original login screen HTML
+  S.role=null; S.currentUser=null; S.checkTech=""; pin=""; loginEmail=""; loginRole="";
   document.getElementById("app").style.display="none";
   var loginDiv = document.getElementById("login");
   loginDiv.style.display="flex";
-  // Re-attach pin buttons if they were replaced
   var pk1 = document.getElementById("pk1");
-  if(!pk1){
-    // Login screen was replaced by set-PIN screen, reload page
-    location.reload();
-    return;
-  }
-  dots();
-  const err=document.getElementById("pin-err");if(err)err.textContent="";
+  if(!pk1){ location.reload(); return; }
+  showEmailStep();
 }
 
 // ─── Event Delegation ────────────────────────────────────────────────────────
@@ -516,6 +584,8 @@ function handleAction(a,v,el,e){
   if(a==="add-tech-account") { addTechAccount(); return; }
   if(a==="del-tech-account") { delTechAccount(parseInt(v)); return; }
   if(a==="reset-tech-pin") { resetTechPin(parseInt(v)); return; }
+  if(a==="send-login-email") { sendLoginEmail("tech", parseInt(v)); return; }
+  if(a==="send-mgr-login-email") { sendLoginEmail("manager", parseInt(v)); return; }
   if(a==="ti-add-prod") { tiAddProd(); return; }
   if(a==="inv-show-add") { S._showAddProd=!S._showAddProd; renderInv(); return; }
   if(a==="remove-prod") { removeProd(v); return; }
@@ -1177,23 +1247,35 @@ function renderSettings(){
   let body="";
   if(tab==="access"){
   var mgrRows = S.managers.map(function(m,i){
-    return `<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:12px 14px;">
-      <div style="flex:1;">
-        <div style="font-weight:600;font-size:14px;">${esc(m.name)}</div>
-        <div style="font-size:12px;color:#64748b;">${m.isTemp?"Temporary PIN: "+m.tempPin:"PIN set"} ${m.isTemp?'<span style="color:#f59e0b;">(not yet changed)</span>':"&#x2713;"}</div>
+    return `<div class="card" style="margin-bottom:8px;padding:12px 14px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;">${esc(m.name)}</div>
+          <div style="font-size:12px;color:#64748b;">${m.email?esc(m.email):""}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">${m.isTemp?"Temporary PIN: "+m.tempPin:"PIN set"} ${m.isTemp?'<span style="color:#f59e0b;">(not yet changed)</span>':"&#x2713;"}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <button class="btn bp" style="padding:5px 10px;font-size:11px;" data-a="send-mgr-login-email" data-v="${i}">Send Login Email</button>
+          <button class="btn bg" style="padding:5px 10px;font-size:11px;" data-a="reset-mgr-pin" data-v="${i}">Reset PIN</button>
+          ${S.managers.length>1?`<button class="btn bd" style="padding:5px 9px;font-size:11px;" data-a="del-mgr" data-v="${i}">Remove</button>`:""}
+        </div>
       </div>
-      <button class="btn bg" style="padding:5px 10px;font-size:12px;" data-a="reset-mgr-pin" data-v="${i}">Reset PIN</button>
-      ${S.managers.length>1?`<button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-mgr" data-v="${i}">X</button>`:""}
     </div>`;
   }).join("");
   var techRows = S.techAccounts.map(function(t,i){
-    return `<div class="card" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:12px 14px;">
-      <div style="flex:1;">
-        <div style="font-weight:600;font-size:14px;">${esc(t.name)}</div>
-        <div style="font-size:12px;color:#64748b;">${t.isTemp?"Temp PIN: "+t.tempPin:"PIN set"} ${t.isTemp?'<span style="color:#f59e0b;">(not changed)</span>':"&#x2713;"}</div>
+    return `<div class="card" style="margin-bottom:8px;padding:12px 14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:${t.email?"8px":"0"};">
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;">${esc(t.name)}</div>
+          <div style="font-size:12px;color:#64748b;">${t.email?esc(t.email):"No email set"}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">${t.isTemp?"Temp PIN: "+t.tempPin:"PIN set"} ${t.isTemp?'<span style="color:#f59e0b;">(not changed)</span>':"&#x2713;"}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <button class="btn bp" style="padding:5px 10px;font-size:11px;" data-a="send-login-email" data-v="${i}">Send Login Email</button>
+          <button class="btn bg" style="padding:5px 10px;font-size:11px;" data-a="reset-tech-pin" data-v="${i}">Reset PIN</button>
+          <button class="btn bd" style="padding:5px 9px;font-size:11px;" data-a="del-tech-account" data-v="${i}">Remove</button>
+        </div>
       </div>
-      <button class="btn bg" style="padding:5px 10px;font-size:12px;" data-a="reset-tech-pin" data-v="${i}">Reset</button>
-      <button class="btn bd" style="padding:5px 9px;font-size:12px;" data-a="del-tech-account" data-v="${i}">X</button>
     </div>`;
   }).join("");
   body = `<div style="margin-bottom:20px;">
@@ -1225,6 +1307,44 @@ function renderCatSettings(){
   const rows=S.cats.map(cat=>`<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden;"><div style="padding:12px 14px;background:#0a1628;display:flex;align-items:center;gap:8px;cursor:pointer;" data-a="toggle-cat" data-v="${cat.id}"><div style="flex:1;"><span style="font-weight:600;font-size:14px;">${esc(cat.label)}</span><span style="font-size:11px;color:#475569;margin-left:8px;">1-${cat.scale} - ${cat.items.length} items</span></div><span style="color:#64748b;">${open===cat.id?"&#x25B2;":"&#x25BC;"}</span></div>${open===cat.id?`<div style="padding:14px;"><div style="display:flex;gap:8px;margin-bottom:12px;"><input class="inp" style="flex:1;padding:6px 10px;font-size:13px;" value="${esc(cat.label)}" data-catid="${cat.id}" data-catfield="label"><select class="inp" style="width:80px;padding:6px 8px;font-size:13px;" data-catid="${cat.id}" data-catfield="scale">${[3,5,10].map(n=>`<option value="${n}"${cat.scale===n?" selected":""}>1-${n}</option>`).join("")}</select></div><div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">${cat.items.map(item=>`<div style="display:flex;gap:6px;align-items:center;background:#0a1628;border-radius:7px;padding:7px 10px;border:1px solid #1e3a5f;"><input class="inp" style="flex:1;padding:4px 8px;font-size:12px;background:transparent;border:none;" value="${esc(item.label)}" data-catid="${cat.id}" data-itemid="${item.id}"><button style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0 2px;" data-a="del-cat-item" data-v="${cat.id}|${item.id}">x</button></div>`).join("")}</div><div style="display:flex;gap:8px;"><button class="btn bg" style="flex:1;font-size:12px;padding:7px;" data-a="add-cat-item" data-v="${cat.id}">+ Add Item</button><button class="btn bd" style="font-size:12px;padding:7px 12px;" data-a="del-cat" data-v="${cat.id}">Remove</button></div></div>`:""}
   </div>`).join("");
   return `<button class="btn bp" style="width:100%;margin-bottom:14px;font-size:13px;" data-a="add-cat">+ Add Category</button>${rows}`;
+}
+
+async function sendLoginEmail(role, idx){
+  const acct = role==="manager" ? S.managers[idx] : S.techAccounts[idx];
+  if(!acct){ alert("Account not found."); return; }
+  if(!acct.email){ alert("No email address set for "+acct.name+". Please add an email first."); return; }
+  const tempPin = acct.isTemp ? acct.tempPin : "";
+  if(!tempPin){ 
+    const reset = confirm(acct.name+" has already set their PIN. Would you like to reset it first so you can send them a new temp PIN?");
+    if(!reset) return;
+    const newPin = prompt("New temporary PIN for "+acct.name+" (4-8 digits):");
+    if(!newPin||newPin.length<4){ alert("PIN must be at least 4 digits."); return; }
+    acct.pin=""; acct.tempPin=newPin; acct.isTemp=true;
+    if(role==="manager") S.managers[idx]=acct; else S.techAccounts[idx]=acct;
+    save(); saveAccountsToSheet();
+  }
+  const pin = acct.isTemp ? acct.tempPin : tempPin;
+  const appUrl = window.location.href.split("?")[0];
+  const subject = "Fox Pest Control Admin Hub - Your Login Information";
+  const body = "Hello "+acct.name+",\n\n"
+    +"You have been set up on the Fox Pest Control Willamette Valley Admin Hub.\n\n"
+    +"App URL: "+appUrl+"\n"
+    +"Your Email: "+acct.email+"\n"
+    +"Temporary PIN: "+pin+"\n\n"
+    +"To log in:\n"
+    +"1. Open the App URL above\n"
+    +"2. Enter your email address\n"
+    +"3. Enter your temporary PIN\n"
+    +"4. You will be prompted to create your own personal PIN\n\n"
+    +"Please keep your PIN private.\n\n"
+    +"Fox Pest Control - Willamette Valley Branch";
+  try {
+    await gs("sendEmailServer", {to: acct.email, subject: subject, body: body});
+    alert("Login email sent to "+acct.email+"!");
+    render();
+  } catch(e){
+    alert("Could not send email: "+e.message);
+  }
 }
 
 function addManager(){
@@ -1300,6 +1420,39 @@ loadAccountsFromSheet();
 // Run immediately
 var dbg = document.getElementById("debug");
 if(dbg) dbg.textContent = "Initializing...";
+
+// Email step handlers
+var emailNextBtn = document.getElementById("email-next-btn");
+if(emailNextBtn){
+  emailNextBtn.onclick = function(){ checkEmail(); };
+  emailNextBtn.addEventListener("touchend", function(e){ e.preventDefault(); checkEmail(); }, {passive:false});
+}
+var backBtn = document.getElementById("back-to-email-btn");
+if(backBtn){
+  backBtn.onclick = function(){ showEmailStep(); };
+  backBtn.addEventListener("touchend", function(e){ e.preventDefault(); showEmailStep(); }, {passive:false});
+}
+var backFromRoleBtn = document.getElementById("back-from-role-btn");
+if(backFromRoleBtn){
+  backFromRoleBtn.onclick = function(){ showEmailStep(); };
+  backFromRoleBtn.addEventListener("touchend", function(e){ e.preventDefault(); showEmailStep(); }, {passive:false});
+}
+// Role selection buttons
+var roleAdminBtn = document.getElementById("role-admin-btn");
+if(roleAdminBtn){
+  roleAdminBtn.onclick = function(){ selectRole("manager"); };
+  roleAdminBtn.addEventListener("touchend", function(e){ e.preventDefault(); selectRole("manager"); }, {passive:false});
+}
+var roleTechBtn = document.getElementById("role-tech-btn");
+if(roleTechBtn){
+  roleTechBtn.onclick = function(){ selectRole("tech"); };
+  roleTechBtn.addEventListener("touchend", function(e){ e.preventDefault(); selectRole("tech"); }, {passive:false});
+}
+// Allow Enter key on email field
+var emailInp = document.getElementById("login-email");
+if(emailInp){
+  emailInp.addEventListener("keydown", function(e){ if(e.key==="Enter") checkEmail(); });
+}
 
 // Safe click + touch setter for mobile compatibility
 function tap(id, k){
