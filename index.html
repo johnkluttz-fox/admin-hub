@@ -1140,10 +1140,12 @@ function renderTruckInvTech(pg){
   var inv = S.truckInventories[techName] || {truck:"", products:[], lastSubmit:null};
   var isNew = !inv.lastSubmit;
 
-  // Get truck from tech account assignment
+  // Always use manager-assigned truck from account settings
   var techAcct = S.techAccounts.find(function(t){ return t.name===techName; });
-  if(techAcct && techAcct.truck && !inv.truck){
-    inv.truck = techAcct.truck;
+  if(techAcct && techAcct.truck){
+    inv.truck = techAcct.truck; // Always override with manager assignment
+    S.truckInventories[techName] = S.truckInventories[techName] || {truck:"", products:[], lastSubmit:null};
+    S.truckInventories[techName].truck = techAcct.truck;
   }
 
   var prodRows = (inv.products||[]).map(function(p, i){
