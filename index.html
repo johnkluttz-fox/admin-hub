@@ -887,7 +887,24 @@ function renderInv(){
     const isR=S._restockId===p.id, isA=S._adjId===p.id;
     let panel="";
     if(isR) panel=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;"><div style="display:flex;gap:6px;margin-bottom:6px;"><input type="number" class="inp" id="rst-${p.id}" style="flex:1;padding:7px 10px;font-size:13px;" placeholder="Add ${esc(p.unit)}"><button class="btn bs" style="padding:7px 14px;font-size:13px;" data-a="do-restock" data-v="${p.id}">Add</button><button class="btn bg" style="padding:7px 10px;font-size:13px;" data-a="close-panel">Cancel</button></div><input type="text" class="inp" id="rst-reason-${p.id}" style="font-size:12px;padding:6px 10px;" placeholder="Reason (e.g. Weekly delivery)"></div>`;
-    if(isA) panel=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;"><div style="display:flex;gap:6px;margin-bottom:6px;"><input type="number" class="inp" id="adj-${p.id}" value="${p.qty}" style="flex:1;padding:7px 10px;font-size:13px;"><button class="btn bp" style="padding:7px 14px;font-size:13px;" data-a="do-adj" data-v="${p.id}">Set</button><button class="btn bg" style="padding:7px 10px;font-size:13px;" data-a="close-panel">Cancel</button></div><input type="text" class="inp" id="adj-reason-${p.id}" style="font-size:12px;padding:6px 10px;" placeholder="Reason (e.g. Audit correction)"></div>`;
+    if(isA) panel=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;">
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Set new quantity:</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input type="number" class="inp" id="adj-${p.id}" value="${p.qty}" style="flex:1;padding:7px 10px;font-size:15px;font-weight:700;">
+        <button class="btn bp" style="padding:7px 14px;font-size:13px;" data-a="do-adj" data-v="${p.id}">Save</button>
+        <button class="btn bg" style="padding:7px 10px;font-size:13px;" data-a="close-panel">Cancel</button>
+      </div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Reason:</div>
+      <select class="inp" id="adj-reason-${p.id}" style="font-size:13px;margin-bottom:6px;">
+        <option value="Restock Received">Restock Received</option>
+        <option value="Weekly Inventory Count">Weekly Inventory Count</option>
+        <option value="Damage / Loss">Damage / Loss</option>
+        <option value="Audit Correction">Audit Correction</option>
+        <option value="Returned to Warehouse">Returned to Warehouse</option>
+        <option value="Other">Other (type below)</option>
+      </select>
+      <input type="text" class="inp" id="adj-reason-other-${p.id}" style="font-size:12px;padding:6px 10px;display:none;" placeholder="Describe reason...">
+    </div>`;
     return `<div class="card" style="margin-bottom:8px;${isLow?"border-color:#c2410c30":""}">
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="flex:1;"><div style="display:flex;align-items:center;gap:6px;"><span style="font-weight:600;font-size:14px;">${esc(p.name)}</span>${isLow?`<span class="tag-low">LOW</span>`:""}</div><div style="color:#475569;font-size:12px;margin-top:2px;">Low at: ${p.lowAt} ${esc(p.unit)}</div></div>
@@ -1056,10 +1073,12 @@ async function submitCheckout(){
     // Send ONE combined email for all items
     if(orders.length>0){
       const itemList=itemLines.join("\n  - ");
+      const miscNotes = (document.getElementById("checkout-misc")||{}).value||"";
       const body="Product Request - Fox Pest Control Willamette Valley\n\n"
         +"Technician: "+tech+"\n"
         +"Date: "+new Date(date).toLocaleDateString("en-US")+"\n\n"
         +"Items Requested:\n  - "+itemList+"\n\n"
+        +(miscNotes?"Additional Notes:\n"+miscNotes+"\n\n":"")
         +"Log in to the Admin Hub to approve or deny each item.\n\n"
         +"Automated notification from Fox Admin Hub.";
       try { await gs("sendEmailServer",{to:getMGMT().join(","),
