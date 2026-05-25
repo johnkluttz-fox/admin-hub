@@ -1296,11 +1296,14 @@ async function invAddProduct(){
   try {
     const result = await gs("addProductToSheetServer", {name:name.trim(), unit:unit.trim(), qty:qty, lowAt:lowAt});
     if(result && result.row){
-      // Update the product with its real row number
       const p = S.products.find(function(p){return p.id===newProd.id;});
       if(p){ p.id="sheet_"+result.row; p.row=result.row; save(); }
+    } else if(result && result.error){
+      alert("Could not add to sheet: "+result.error);
     }
-  } catch(e){ console.warn("Add product to sheet:", e); }
+  } catch(e){
+    alert("Error adding to sheet: "+e.message);
+  }
 }
 
 // ─── Truck Inventory ──────────────────────────────────────────────────────────
