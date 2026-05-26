@@ -731,7 +731,7 @@ function setPage(id){
 
 function render(){
   // Nav
-  const mgrTabs=[{id:"dashboard",l:"Home"},{id:"inspect",l:"Fleet"},{id:"inventory",l:"Inventory"},{id:"orders",l:"Orders"},{id:"checkout",l:"Checkout"},{id:"settings",l:"Settings"}];
+  const mgrTabs=[{id:"dashboard",l:"Home"},{id:"inspect",l:"Fleet"},{id:"inventory",l:"Inventory"},{id:"orders",l:"Orders"},{id:"checkout",l:"Checkout"},{id:"truckinv",l:"Truck Inv"},{id:"restock",l:"Restock"},{id:"settings",l:"Settings"}];
   var techTabs=[{id:"checkout",l:"Request"},{id:"truckinv",l:"My Truck"}];
   const tabs=S.role==="manager"?mgrTabs:techTabs;
   const pending=S.orders.filter(o=>o.status==="Pending").length;
