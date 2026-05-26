@@ -127,6 +127,7 @@ input,textarea,select,button{font-family:inherit;}
     <div id="pg-orders" class="pg"></div>
     <div id="pg-checkout" class="pg"></div>
     <div id="pg-truckinv" class="pg"></div>
+    <div id="pg-restock" class="pg"></div>
     <div id="pg-settings" class="pg"></div>
   </div>
 </div>
@@ -205,6 +206,7 @@ const S = {
   techs:[], techEmails:[], cats:DEFAULT_CATS,
   inspections:[], products:[], checkouts:[], orders:[],
   truckInventories:{}, // {techName: {truck, products:[{id,name,unit,qty,prevQty}], lastSubmit}}
+  restockOrders:[], // [{id, date, sentBy, items:[{id,name,unit,qtyOrdered}], status, receivedDate}]
   tab:"dashboard", inspView:"home", inspStep:0, inspData:{},
   invView:"list", checkDone:false, checkItems:[], checkTech:"",
   ordersFilter:"Pending", settingsTab:"access",
@@ -214,9 +216,9 @@ const S = {
 
 function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
-function save(){["managers","techAccounts","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders","truckInventories"].forEach(k=>lsSet("hub:"+k,S[k]));}
+function save(){["managers","techAccounts","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders","truckInventories","restockOrders"].forEach(k=>lsSet("hub:"+k,S[k]));}
 function load(){
-  ["managers","techAccounts","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders","truckInventories"].forEach(k=>{const v=lsGet("hub:"+k);if(v!=null)S[k]=v;});
+  ["managers","techAccounts","managerName","trucks","techs","techEmails","cats","inspections","products","checkouts","orders","truckInventories","restockOrders"].forEach(k=>{const v=lsGet("hub:"+k);if(v!=null)S[k]=v;});
   if(!S.products||!S.products.length) S.products=JSON.parse(JSON.stringify(SEED));
   if(!S.managers||!S.managers.length) S.managers=[
     {id:"mgr1",name:"John Kluttz",email:"john.kluttz@fox-marketingservices.com",pin:"",tempPin:"1234",isTemp:true}
@@ -295,7 +297,7 @@ async function saveAccountsToSheet(){
 async function syncFromSheet(){
   badge("syncing");
   try {
-    const [pr,tc] = await Promise.all([gs("getProductsServer",null),gs("getTechsServer",null)]);
+    const [pr,tc,ro,insp] = await Promise.all([gs("getProductsServer",null),gs("getTechsServer",null),gs("getRestockOrdersServer",null),gs("getInspectionsServer",null)]);
     if(pr&&pr.products&&pr.products.length){
       // Preserve local truckWarnAbove values when syncing
       pr.products.forEach(function(p){
@@ -326,6 +328,14 @@ async function syncFromSheet(){
         }
       });
       lsSet("hub:techAccounts",S.techAccounts);
+    }
+    if(ro&&ro.orders&&ro.orders.length){
+      S.restockOrders=ro.orders;
+      lsSet("hub:restockOrders",S.restockOrders);
+    }
+    if(insp&&insp.inspections&&insp.inspections.length){
+      S.inspections=insp.inspections;
+      lsSet("hub:inspections",S.inspections);
     }
     badge("done");
   } catch(e){ console.warn("Sync:",e.message); badge("err"); }
@@ -536,7 +546,7 @@ function login(role){
           // Update nav badge and dashboard without full re-render
           var pending = S.orders.filter(function(o){ return o.status==="Pending"; }).length;
           // Re-render nav to update badge
-          var mgrTabs=[{id:"dashboard",l:"Home"},{id:"inspect",l:"Fleet"},{id:"inventory",l:"Inventory"},{id:"orders",l:"Orders"},{id:"checkout",l:"Checkout"},{id:"truckinv",l:"Truck Inv"},{id:"settings",l:"Settings"}];
+          var mgrTabs=[{id:"dashboard",l:"Home"},{id:"inspect",l:"Fleet"},{id:"inventory",l:"Inventory"},{id:"orders",l:"Orders"},{id:"checkout",l:"Checkout"},{id:"truckinv",l:"Truck Inv"},{id:"restock",l:"Restock"},{id:"settings",l:"Settings"}];
           document.getElementById("nav").innerHTML=mgrTabs.map(function(t){
             return "<button class='nb"+(S.tab===t.id?" on":"")+"' data-a='tab' data-v='"+t.id+"'>"+t.l+(t.id==="orders"&&pending>0?"<span class='bdg'>"+pending+"</span>":"")+"</button>";
           }).join("")+"<button class='nb' id='logout-btn' style='color:#475569;'>Exit</button>";
@@ -672,6 +682,17 @@ function handleAction(a,v,el,e){
   if(a==="approve-order") { confirmApprove(v); return; }
   if(a==="deny-order") { confirmDeny(v); return; }
   if(a==="settings-tab") { S.settingsTab=v; render(); return; }
+  if(a==="restock-view") { S._restockView=v; renderRestock(); return; }
+  if(a==="restock-add-prod") { restockAddProd(); return; }
+  if(a==="restock-remove-extra") { if(S._restockExtras) S._restockExtras.splice(parseInt(v),1); renderRestock(); return; }
+  if(a==="restock-send-email") { restockSendEmail(); return; }
+  if(a==="restock-reset") { S._restockSent=false; S._restockExtras=[]; S._restockNotes=""; renderRestock(); return; }
+  if(a==="restock-open-receive") { S._receivingOrder=S.restockOrders.find(function(o){return o.id===v;}); S._restockView="receiving"; renderRestock(); return; }
+  if(a==="restock-submit-receive") { restockSubmitReceive(); return; }
+  if(a==="restock-archive") {
+    S.restockOrders.forEach(function(o){ if(o.status==="Received") o.archived=true; });
+    save(); renderRestock(); return;
+  }
   if(a==="save-pins") { savePins(); return; }
   if(a==="add-mgr") { addManager(); return; }
   if(a==="del-mgr") { delManager(parseInt(v)); return; }
@@ -722,6 +743,7 @@ function render(){
   else if(S.tab==="orders") refreshOrders();
   else if(S.tab==="checkout") renderCheckout();
   else if(S.tab==="truckinv") renderTruckInv();
+  else if(S.tab==="restock") renderRestock();
   else if(S.tab==="settings") renderSettings();
 }
 
@@ -1529,6 +1551,313 @@ async function tiSubmit(){
   } else {
     alert("Inventory submitted successfully!");
   }
+}
+
+// ─── Restock Orders ───────────────────────────────────────────────────────────
+function renderRestock(){
+  const pg = document.getElementById("pg-restock");
+  if(!pg) return;
+  const view = S._restockView || "menu";
+  if(view==="send") { renderRestockSend(pg); return; }
+  if(view==="receive") { renderRestockReceive(pg); return; }
+  if(view==="receiving") { renderRestockReceiving(pg); return; }
+
+  // Menu view
+  const pending = S.restockOrders.filter(function(o){ return o.status==="Pending"||o.status==="Partial"; });
+  pg.innerHTML = "<h2 style='font-size:20px;font-weight:700;margin-bottom:6px;'>Restock Orders</h2>"
+    +"<p style='color:#475569;font-size:13px;margin-bottom:24px;'>Manage warehouse restocking for Willamette Valley.</p>"
+    +"<div class='g2' style='margin-bottom:24px;'>"
+    +"<button class='btn bp' style='padding:20px;border-radius:12px;font-size:15px;' data-a='restock-view' data-v='send'>&#x1F4E4; Send Restock Request</button>"
+    +"<button class='btn bg' style='padding:20px;border-radius:12px;font-size:15px;"+(pending.length>0?"border-color:#f59e0b;color:#f59e0b;":"")+"' data-a='restock-view' data-v='receive'>&#x1F4E5; Receive Restock"+(pending.length>0?"<br><span style='font-size:12px;'>("+pending.length+" pending)</span>":"")+"</button>"
+    +"</div>"
+    // Recent orders
+    +(S.restockOrders.length>0
+      ? "<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;'>"
+        +"<div style='font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:.08em;font-weight:600;'>Restock Order History</div>"
+        +"<button class='btn bg' style='font-size:11px;padding:4px 10px;' data-a='restock-archive'>Archive Completed</button>"
+        +"</div>"
+        +S.restockOrders.filter(function(o){ return !o.archived; }).map(function(o){
+          var sc = o.status==="Received"?"#22c55e":o.status==="Partial"?"#f59e0b":o.status==="Backordered"?"#f97316":"#3b82f6";
+          return "<div class='card' style='display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:12px 14px;"+(o.status==="Pending"||o.status==="Partial"||o.status==="Backordered"?"cursor:pointer;":"")+";' "+(o.status==="Pending"||o.status==="Partial"||o.status==="Backordered"?"data-a='restock-open-receive' data-v='"+o.id+"'":"")+">"
+            +"<div style='flex:1;'><div style='font-weight:600;font-size:14px;'>Order "+o.id.slice(-6)+"</div>"
+            +"<div style='color:#64748b;font-size:12px;margin-top:2px;'>"+fd(o.date)+" &bull; "+o.items.length+" item"+(o.items.length>1?"s":"")+"</div></div>"
+            +"<span class='sbdg' style='background:"+sc+"22;color:"+sc+";'>"+o.status+"</span>"
+            +"</div>";
+        }).join("")
+      : "");
+}
+
+function renderRestockSend(pg){
+  if(S._restockSent){
+    pg.innerHTML = "<div style='text-align:center;padding:40px 20px;'>"
+      +"<div style='width:72px;height:72px;background:#14532d;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:36px;'>&#x2713;</div>"
+      +"<h2 style='font-size:22px;font-weight:700;margin-bottom:8px;'>Restock Request Sent!</h2>"
+      +"<p style='color:#475569;font-size:14px;margin-bottom:28px;'>Your request has been emailed to Rockey and saved as a pending order.</p>"
+      +"<div style='display:flex;gap:10px;justify-content:center;'>"
+      +"<button class='btn bp' data-a='restock-reset'>New Request</button>"
+      +"<button class='btn bg' data-a='restock-view' data-v='menu'>Back to Menu</button>"
+      +"</div></div>";
+    return;
+  }
+
+  const lowStock = S.products.filter(function(p){ return p.qty<=p.lowAt; });
+  const otherProds = S.products.filter(function(p){ return p.qty>p.lowAt; });
+  const otherOpts = otherProds.map(function(p){ return "<option value='"+p.id+"'>"+esc(p.name)+" ("+p.qty+" "+esc(p.unit)+" on hand)</option>"; }).join("");
+
+  const lowRows = lowStock.map(function(p){
+    const checked = !S._restockSelected || S._restockSelected[p.id]!==false;
+    return "<div style='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #0a1628;'>"
+      +"<input type='checkbox' id='rs-"+p.id+"' style='width:18px;height:18px;cursor:pointer;accent-color:#2563eb;'"+(checked?" checked":"")+">"
+      +"<div style='flex:1;'><label for='rs-"+p.id+"' style='font-weight:600;font-size:14px;cursor:pointer;'>"+esc(p.name)+"</label>"
+      +"<div style='font-size:12px;color:#f97316;margin-top:2px;'>"+p.qty+" "+esc(p.unit)+" on hand (min: "+p.lowAt+")</div></div>"
+      +"<input type='number' id='rs-qty-"+p.id+"' class='inp' style='width:70px;padding:6px;font-size:13px;font-weight:700;text-align:center;' placeholder='Order qty'></div>";
+  }).join("");
+
+  pg.innerHTML = "<div style='display:flex;gap:10px;align-items:center;margin-bottom:16px;'>"
+    +"<button class='btn bg' data-a='restock-view' data-v='menu'>Back</button>"
+    +"<h2 style='font-size:18px;font-weight:700;'>Send Restock Request</h2></div>"
+    +(lowStock.length>0
+      ? "<div class='card' style='margin-bottom:16px;'>"
+        +"<div style='font-size:12px;font-weight:600;color:#fb923c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;'>Low Stock Items</div>"
+        +lowRows+"</div>"
+      : "<div class='card' style='margin-bottom:16px;padding:20px;text-align:center;color:#475569;'>No items currently low on stock.</div>")
+    +"<div class='card' style='margin-bottom:16px;'>"
+    +"<div style='font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;'>Add Other Products</div>"
+    +"<div style='display:flex;gap:8px;'>"
+    +"<select class='inp' id='rs-add-select' style='flex:2;'><option value=''>Select product...</option>"+otherOpts+"</select>"
+    +"<input type='number' class='inp' id='rs-add-qty' style='width:70px;' placeholder='Qty'>"
+    +"<button class='btn bp' style='padding:10px 14px;font-size:13px;' data-a='restock-add-prod'>Add</button>"
+    +"</div></div>"
+    +(S._restockExtras&&S._restockExtras.length>0
+      ? "<div class='card' style='margin-bottom:16px;'>"
+        +"<div style='font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:10px;'>Additional Items</div>"
+        +S._restockExtras.map(function(e,i){
+          return "<div style='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #0a1628;'>"
+            +"<div style='flex:1;font-weight:600;font-size:14px;'>"+esc(e.name)+"</div>"
+            +"<div style='color:#64748b;font-size:13px;'>Order: "+e.qty+" "+esc(e.unit)+"</div>"
+            +"<button style='background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:18px;' data-a='restock-remove-extra' data-v='"+i+"'>x</button>"
+            +"</div>";
+        }).join("")+"</div>"
+      : "")
+    +"<div style='margin-bottom:16px;'>"
+    +"<label style='display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:6px;'>Additional Message (optional)</label>"
+    +"<textarea class='inp' id='rs-notes' rows='3' placeholder='Any notes for Rockey...' style='resize:vertical;'>"+esc(S._restockNotes||"")+"</textarea>"
+    +"</div>"
+    +"<button class='btn bp' style='width:100%;padding:14px;font-size:15px;' data-a='restock-send-email'>Send Restock Request to Rockey</button>";
+}
+
+function renderRestockReceive(pg){
+  const pending = S.restockOrders.filter(function(o){ return o.status==="Pending"||o.status==="Partial"||o.status==="Backordered"; });
+  if(pending.length===0){
+    pg.innerHTML = "<div style='display:flex;gap:10px;align-items:center;margin-bottom:16px;'>"
+      +"<button class='btn bg' data-a='restock-view' data-v='menu'>Back</button>"
+      +"<h2 style='font-size:18px;font-weight:700;'>Receive Restock</h2></div>"
+      +"<div style='text-align:center;color:#475569;padding:40px;'>"
+      +"<div style='font-size:36px;margin-bottom:12px;'>&#x1F4E6;</div>"
+      +"<p>No pending restock orders.</p>"
+      +"<p style='font-size:13px;margin-top:8px;'>Send a restock request first.</p></div>";
+    return;
+  }
+  pg.innerHTML = "<div style='display:flex;gap:10px;align-items:center;margin-bottom:16px;'>"
+    +"<button class='btn bg' data-a='restock-view' data-v='menu'>Back</button>"
+    +"<h2 style='font-size:18px;font-weight:700;'>Receive Restock</h2></div>"
+    +"<p style='color:#475569;font-size:13px;margin-bottom:16px;'>Select an order to receive:</p>"
+    +pending.map(function(o){
+      var sc2 = o.status==="Partial"?"#f59e0b":o.status==="Backordered"?"#f97316":"#3b82f6";
+      var itemSummary = o.items.map(function(i){ return esc(i.name)+" x "+i.qtyOrdered; }).join(", ");
+      return "<div class='card' style='margin-bottom:10px;cursor:pointer;' data-a='restock-open-receive' data-v='"+o.id+"'>"
+        +"<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;'>"
+        +"<div style='font-weight:700;font-size:15px;'>Order "+o.id.slice(-6)+"</div>"
+        +"<span class='sbdg' style='background:"+sc2+"22;color:"+sc2+";'>"+o.status+"</span>"
+        +"</div>"
+        +"<div style='color:#64748b;font-size:12px;'>"+fd(o.date)+"</div>"
+        +"<div style='color:#94a3b8;font-size:12px;margin-top:4px;'>"+itemSummary+"</div>"
+        +"</div>";
+    }).join("");
+}
+
+function renderRestockReceiving(pg){
+  const order = S._receivingOrder;
+  if(!order){ S._restockView="receive"; renderRestock(); return; }
+  const rows = order.items.map(function(item){
+    return "<div style='background:#0a1628;border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid #1e3a5f;'>"
+      +"<div style='font-weight:700;font-size:15px;margin-bottom:4px;'>"+esc(item.name)+"</div>"
+      +"<div style='font-size:12px;color:#64748b;margin-bottom:12px;'>Ordered: "+item.qtyOrdered+" "+esc(item.unit)+"</div>"
+      +"<div class='g3'>"
+      +"<div><div style='font-size:11px;color:#22c55e;font-weight:600;margin-bottom:4px;'>Received</div>"
+      +"<input type='number' class='inp' id='rcv-got-"+item.id+"' style='padding:8px;font-size:15px;font-weight:700;text-align:center;' value='"+item.qtyOrdered+"' min='0'></div>"
+      +"<div><div style='font-size:11px;color:#ef4444;font-weight:600;margin-bottom:4px;'>Not Received</div>"
+      +"<input type='number' class='inp' id='rcv-miss-"+item.id+"' style='padding:8px;font-size:15px;font-weight:700;text-align:center;' value='0' min='0'></div>"
+      +"<div><div style='font-size:11px;color:#f97316;font-weight:600;margin-bottom:4px;'>Backordered</div>"
+      +"<input type='number' class='inp' id='rcv-back-"+item.id+"' style='padding:8px;font-size:15px;font-weight:700;text-align:center;' value='0' min='0'></div>"
+      +"</div></div>";
+  }).join("");
+
+  pg.innerHTML = "<div style='display:flex;gap:10px;align-items:center;margin-bottom:16px;'>"
+    +"<button class='btn bg' data-a='restock-view' data-v='receive'>Back</button>"
+    +"<div><h2 style='font-size:18px;font-weight:700;'>Receive Order "+order.id.slice(-6)+"</h2>"
+    +"<div style='color:#64748b;font-size:12px;'>Ordered: "+fd(order.date)+"</div></div></div>"
+    +"<p style='color:#475569;font-size:13px;margin-bottom:16px;'>Enter quantities for each product. Backordered items will create a new pending order.</p>"
+    +rows
+    +"<button class='btn bs' style='width:100%;padding:14px;font-size:15px;margin-top:8px;' data-a='restock-submit-receive'>Submit Received Items</button>";
+}
+
+// ─── Restock Actions ──────────────────────────────────────────────────────────
+function restockAddProd(){
+  const sel = document.getElementById("rs-add-select");
+  const qtyInp = document.getElementById("rs-add-qty");
+  if(!sel||!sel.value) return;
+  const prod = S.products.find(function(p){ return p.id===sel.value; });
+  if(!prod) return;
+  const qty = parseInt(qtyInp?qtyInp.value:"")||0;
+  if(!S._restockExtras) S._restockExtras=[];
+  S._restockExtras.push({id:prod.id,name:prod.name,unit:prod.unit,qty:qty,onHand:prod.qty});
+  renderRestock();
+}
+
+async function restockSendEmail(){
+  const lowStock = S.products.filter(function(p){ return p.qty<=p.lowAt; });
+  const notes = (document.getElementById("rs-notes")||{}).value||"";
+  S._restockNotes = notes;
+  const selectedItems = [];
+
+  lowStock.forEach(function(p){
+    const cb = document.getElementById("rs-"+p.id);
+    if(cb&&cb.checked){
+      const qtyInp = document.getElementById("rs-qty-"+p.id);
+      const qty = parseInt(qtyInp?qtyInp.value:"")||0;
+      selectedItems.push({id:p.id,name:p.name,unit:p.unit,qtyOrdered:qty,onHand:p.qty});
+    }
+  });
+  (S._restockExtras||[]).forEach(function(e){
+    selectedItems.push({id:e.id,name:e.name,unit:e.unit,qtyOrdered:e.qty,onHand:e.onHand||0});
+  });
+
+  if(selectedItems.length===0){ alert("Please select at least one product."); return; }
+
+  const date = new Date().toISOString();
+  const orderId = "RST-"+Date.now();
+  const order = {id:orderId,date,sentBy:S.managerName,items:selectedItems,status:"Pending",notes};
+  S.restockOrders.unshift(order);
+  save();
+  // Save to sheet
+  try { await gs("saveRestockOrderServer", {order:order}); } catch(e){ console.warn("Save restock order:", e); }
+
+  const itemList = selectedItems.map(function(i){
+    return "  - "+i.name+": "+i.onHand+" "+i.unit+" on hand, ordering "+i.qtyOrdered;
+  }).join("\n");
+
+  const body = "Restock Request - Fox Pest Control Willamette Valley\n\n"
+    +"From: "+S.managerName+"\nDate: "+new Date(date).toLocaleDateString("en-US")+"\nOrder ID: "+orderId+"\n\n"
+    +"Products to Restock:\n"+itemList+"\n\n"
+    +(notes?"Additional Notes:\n"+notes+"\n\n":"")
+    +"Please place this order at your earliest convenience.\n\nFox Pest Control Admin Hub";
+
+  try {
+    await gs("sendEmailServer",{
+      to:"rockey.martin@fox-marketingservices.com",
+      subject:"[Fox Pest Control] Restock Request - "+selectedItems.length+" item"+(selectedItems.length>1?"s":"")+" - "+S.managerName,
+      body:body
+    });
+    S._restockSent=true;
+    S._restockExtras=[];
+    S._restockNotes="";
+    S._restockSelected={};
+    renderRestock();
+  } catch(e){ alert("Could not send: "+e.message); }
+}
+
+async function restockSubmitReceive(){
+  const order = S._receivingOrder;
+  if(!order) return;
+  const received=[], missing=[], backordered=[];
+
+  for(var i=0; i<order.items.length; i++){
+    var item = order.items[i];
+    var got = parseInt((document.getElementById("rcv-got-"+item.id)||{}).value)||0;
+    var miss = parseInt((document.getElementById("rcv-miss-"+item.id)||{}).value)||0;
+    var back = parseInt((document.getElementById("rcv-back-"+item.id)||{}).value)||0;
+
+    if(got>0){
+      received.push({...item, qtyReceived:got});
+      // Add to inventory
+      var prod = S.products.find(function(p){ return p.id===item.id; });
+      if(prod){
+        var oldQty=prod.qty;
+        prod.qty+=got;
+        try {
+          await gs("updateQtyServer",{row:prod.row,qty:prod.qty});
+          await gs("logAdjustmentServer",{product:prod.name,unit:prod.unit,oldQty,newQty:prod.qty,manager:S.managerName,reason:"Restock Received - Order "+order.id.slice(-6)});
+        } catch(e){}
+      }
+    }
+    if(miss>0) missing.push({...item, qtyMissing:miss});
+    if(back>0) backordered.push({...item, qtyOrdered:back});
+  }
+
+  // Update order status
+  const idx = S.restockOrders.findIndex(function(o){ return o.id===order.id; });
+  if(idx>=0){
+    S.restockOrders[idx].status = backordered.length>0||missing.length>0 ? "Partial" : "Received";
+    S.restockOrders[idx].receivedDate = new Date().toISOString();
+    S.restockOrders[idx].received = received;
+    S.restockOrders[idx].missing = missing;
+    S.restockOrders[idx].backordered = backordered;
+  }
+
+  // Create new restock order for backordered items
+  if(backordered.length>0){
+    const backOrder = {
+      id:"RST-"+Date.now(),
+      date:new Date().toISOString(),
+      sentBy:S.managerName,
+      items:backordered,
+      status:"Backordered",
+      notes:"Backordered from Order "+order.id.slice(-6)
+    };
+    S.restockOrders.unshift(backOrder);
+  }
+
+  save();
+  // Update order in sheet
+  try { await gs("updateRestockOrderServer", {
+    orderId: order.id,
+    status: S.restockOrders[idx]?S.restockOrders[idx].status:"Partial",
+    receivedDate: new Date().toISOString(),
+    received: received,
+    missing: missing,
+    backordered: backordered
+  }); } catch(e){ console.warn("Update restock order:", e); }
+  // Save backordered order to sheet too
+  if(backordered.length>0){
+    try { await gs("saveRestockOrderServer", {order:S.restockOrders[0]}); } catch(e){}
+  }
+
+  // Send ONE email to Rockey summarizing everything
+  var emailLines=[];
+  if(received.length) emailLines.push("RECEIVED:\n"+received.map(function(i){ return "  - "+i.name+": "+i.qtyReceived+" "+i.unit; }).join("\n"));
+  if(missing.length) emailLines.push("NOT RECEIVED (missing from shipment):\n"+missing.map(function(i){ return "  - "+i.name+": "+i.qtyMissing+" "+i.unit; }).join("\n"));
+  if(backordered.length) emailLines.push("BACKORDERED (new order created):\n"+backordered.map(function(i){ return "  - "+i.name+": "+i.qtyOrdered+" "+i.unit; }).join("\n"));
+
+  const body = "Restock Received - Fox Pest Control Willamette Valley\n\n"
+    +"Order ID: "+order.id.slice(-6)+"\nReceived By: "+S.managerName+"\nDate: "+new Date().toLocaleDateString("en-US")+"\n\n"
+    +emailLines.join("\n\n")+"\n\n"
+    +(missing.length>0?"Note: Missing items were not received and have not been added to inventory.\n\n":"")
+    +(backordered.length>0?"Note: Backordered items have been saved as a new pending restock order.\n\n":"")
+    +"Fox Pest Control Admin Hub - Willamette Valley Branch";
+
+  try {
+    await gs("sendEmailServer",{
+      to:"rockey.martin@fox-marketingservices.com",
+      subject:"[Fox Pest Control] Restock Received - Order "+order.id.slice(-6)+(backordered.length>0?" (Partial)":""),
+      body:body
+    });
+  } catch(e){ console.warn("Email:",e); }
+
+  S._receivingOrder=null;
+  S._restockView="menu";
+  alert("Inventory updated! "+(backordered.length>0?"Backordered items saved as new pending order.":""));
+  renderRestock();
 }
 
 function renderSettings(){
