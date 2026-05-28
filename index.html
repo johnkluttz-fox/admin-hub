@@ -1044,13 +1044,29 @@ function checkDone(){
 }
 
 async function submitCheckout(){
+  // Prevent double submission
+  const submitBtn = document.querySelector("[data-a='submit-checkout']");
+  if(submitBtn){
+    if(submitBtn.disabled) return;
+    submitBtn.disabled=true;
+    submitBtn.textContent="Submitting...";
+    submitBtn.style.opacity="0.6";
+  }
   snapshotCheckItems();
   const techSel=document.getElementById("check-tech");
   const tech=techSel?techSel.value:S.checkTech;
-  if(!tech){alert("Please select your name.");return;}
+  if(!tech){
+    alert("Please select your name.");
+    if(submitBtn){submitBtn.disabled=false;submitBtn.textContent=S.role==="manager"?"Process Checkout":"Submit Request";submitBtn.style.opacity="1";}
+    return;
+  }
   S.checkTech=tech;
   const valid=S.checkItems.filter(i=>i.productId&&parseInt(i.qty)>0);
-  if(!valid.length){alert("Please add at least one product with a quantity.");return;}
+  if(!valid.length){
+    alert("Please add at least one product with a quantity.");
+    if(submitBtn){submitBtn.disabled=false;submitBtn.textContent=S.role==="manager"?"Process Checkout":"Submit Request";submitBtn.style.opacity="1";}
+    return;
+  }
   const isM=S.role==="manager";
 
   // For techs: check truck inventory against manager-set thresholds
@@ -1080,16 +1096,18 @@ async function submitCheckout(){
 
   if(isM){
     // Manager checkout - process each item, update inventory, log to sheet
-    const low=[];
+    const low=[], checkoutWrites=[];
     for(const item of valid){
       const prod=S.products.find(p=>p.id===item.productId); if(!prod) continue;
       const newQty=Math.max(0,prod.qty-parseInt(item.qty));
       prod.qty=newQty;
       const rec={id:uid(),date,tech,techEmail,product:prod.name,qty:parseInt(item.qty),unit:prod.unit,notes:item.notes||""};
       S.checkouts.unshift(rec);
-      try { await gs("updateQtyServer",{row:prod.row,qty:newQty}); await gs("logCheckoutServer",rec); } catch(e){}
+      checkoutWrites.push(gs("updateQtyServer",{row:prod.row,qty:newQty}));
+      checkoutWrites.push(gs("logCheckoutServer",rec));
       if(prod.qty<=prod.lowAt) low.push(prod);
     }
+    try { await Promise.all(checkoutWrites); } catch(e){ console.warn("Checkout writes:", e); }
     if(low.length) sendLowEmail(low);
   } else {
     // Tech request - bundle ALL items into ONE order with ONE email
@@ -1252,12 +1270,15 @@ function renderOrders(){
 }
 
 async function confirmApprove(baseId){
+  // Disable submit button immediately
+  var submitBtn = document.querySelector("[data-a='approve-order']");
+  if(submitBtn){ submitBtn.disabled=true; submitBtn.textContent="Processing..."; submitBtn.style.opacity="0.6"; }
   var groupOrders = S.orders.filter(function(o){ return getBaseId(o.id)===baseId && o.status==="Pending"; });
   if(!groupOrders.length) return;
   var tech = groupOrders[0].tech;
   var techEmail = groupOrders[0].techEmail||"";
   var reason = (document.getElementById("deny-rsn-"+baseId)||{}).value||"";
-  var approvedItems=[], deniedItems=[], low=[];
+  var approvedItems=[], deniedItems=[], low=[], sheetWrites=[];
 
   for(var i=0; i<groupOrders.length; i++){
     var order = groupOrders[i];
@@ -1267,18 +1288,24 @@ async function confirmApprove(baseId){
     var prod = S.products.find(function(p){ return p.id===order.productId; });
 
     if(decision==="approve"){
-      if(prod){ var nq=Math.max(0,prod.qty-qty); prod.qty=nq; try{await gs("updateQtyServer",{row:prod.row,qty:nq});}catch(e){} if(prod.qty<=prod.lowAt) low.push(prod); }
+      if(prod){ var nq=Math.max(0,prod.qty-qty); prod.qty=nq; if(prod.qty<=prod.lowAt) low.push(prod); }
       order.status="Approved"; order.approvedQty=qty; order.approvedBy=S.managerName;
       approvedItems.push(order.product+" x "+qty+" "+esc(order.unit));
-      try { await gs("updateOrderStatusServer",{orderId:order.id,status:"Approved",approvedQty:qty,approvedBy:S.managerName}); await gs("addOrderHistoryServer",Object.assign({},order,{approvedQty:qty,approvedBy:S.managerName})); } catch(e){}
+      // Queue sheet writes to run in parallel later
+      sheetWrites.push(gs("updateOrderStatusServer",{orderId:order.id,status:"Approved",approvedQty:qty,approvedBy:S.managerName}));
+      sheetWrites.push(gs("addOrderHistoryServer",Object.assign({},order,{approvedQty:qty,approvedBy:S.managerName})));
+      if(prod&&prod.row) sheetWrites.push(gs("updateQtyServer",{row:prod.row,qty:prod.qty}));
     } else {
       order.status="Denied"; order.approvedQty=0; order.approvedBy=S.managerName; order.denyReason=reason;
       deniedItems.push(order.product+" x "+order.requestedQty+" "+esc(order.unit));
-      try { await gs("updateOrderStatusServer",{orderId:order.id,status:"Denied",approvedQty:0,approvedBy:S.managerName}); } catch(e){}
+      sheetWrites.push(gs("updateOrderStatusServer",{orderId:order.id,status:"Denied",approvedQty:0,approvedBy:S.managerName}));
     }
   }
 
   S.editOrderId=null; S._itemDecisions={}; save(); renderOrders();
+
+  // Run ALL sheet writes in parallel - much faster than sequential
+  try { await Promise.all(sheetWrites); } catch(e){ console.warn("Sheet writes:", e); }
 
   // One email summarizing both approved and denied
   var te=techEmail; // Only send to tech on approval/denial
